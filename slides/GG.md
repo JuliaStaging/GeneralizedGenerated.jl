@@ -1,9 +1,9 @@
+
 # Background
 
 ## Generated Functions in Julia
 
-Julia can only create functions statically. Accurately,
-apart from using the `@generated` macro(generated functions), we can create functions
+Julia can only create functions statically. Accurately, apart from using the `@generated` macro(generated functions), we can create functions
 - literally for each function, or
 - by calling macros
 
@@ -16,29 +16,25 @@ according to runtime data, hence Julia has provided a solution called
 the [generated function](https://docs.julialang.org/en/v1/manual/metaprogramming/#Generated-functions-1).
 
 The name of the generated function doesn't suggest its powerful. I used to introduce this to
-fans of DrRacket, they immediately responsed, "generating functions is trivial, exactly the most common
-sight in LISP idioms". Though it was not their fault, they just tried to understand it literally, but I
+fans of DrRacket, they immediately responsed, "generating functions is trivial, exactly the most common sight in LISP idioms". Though it was not their fault, they just tried to understand it literally, but I
 do feel like to laugh them at the street :-)
 
 In dynamic languages, when we generate functions from runtime data, we must have following steps:
 
-- invoke the generator with runtime data as its parameters, and bind the expression to a symbol to represent
-  the generated function.
+- invoke the generator with runtime data as its parameters, and bind the expression to a symbol to represent the generated function.
   The generator might build an AST(abstract syntax tree) which represents the generated
   function, and compile/execute it to a runtime object.
 
 - calling the generated function at each expected callsite.
 
 
-However, generated functions in Julia are more convenient, we only need to return the AST of the generated
-function, and compiler will do the remaining tasks for us.
+However, generated functions in Julia are more convenient, we only need to return the AST of the generated function, and compiler will do the remaining tasks for us.
 
 **This, Julia's generated function, becomes extremely useful when we need a polymorphic generated function**.
 
 Polymorphisms can be achieved by **generics** or **templates**. The former one, will use the same code
 to process parameters of various types, while the latter provides specialized code for each group
-of the parameter types. Usually, the former is more dynamic, slow(for requiring runtime coercions) and limited
-(might disallow polymorphisms for specific types, like value types in Java), while the latter is
+of the parameter types. Usually, the former is more dynamic, slow(for requiring runtime coercions) and limited(might disallow polymorphisms for specific types, like value types in Java), while the latter is
 static, fast, flexible.
 
 Julia's generated function achieves polymorphism via templates, and it can take advantage of
@@ -67,7 +63,7 @@ end
 
 The first restriction is, we can only generate functions based on typeable data.
 
-**Typeable** here is not an offical term, I use this to indicate the data
+**Typeable** here is not an official term, I use this to indicate the data
 that can be held in the type parameters, you can roughly treat it as **immutable**, but
 the scope of the former is smaller than the latter.
 
@@ -477,7 +473,7 @@ which looks pretty similar to those in C++:
 [](a) -> a
 ```
 
-In our test cases, you can find out codes that like
+In our test cases, you can find out codes that look like
 
 ```julia
 @generated function f(x)
