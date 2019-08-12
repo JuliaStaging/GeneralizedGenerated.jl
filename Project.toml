@@ -3,6 +3,10 @@ uuid = "6b9d7cbe-bcb9-11e9-073f-15a7a543e2eb"
 authors = ["thautwarm"]
 version = "0.1.0"
 
+[deps]
+MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+
 [compat]
 julia = "1"
 
