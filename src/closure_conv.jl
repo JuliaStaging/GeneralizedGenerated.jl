@@ -71,14 +71,51 @@ end
 
 struct RuntimeFn{Args, Kwargs, Body} end
 
-@generated function (::RuntimeFn{Args, Kwargs, Body})(args...; kwargs...) where {Args, Kwargs, Body}
+EmptyTupleExprTy = expr2typelevel(:())
+
+@generated function (::RuntimeFn{Args, EmptyTupleExprTy, Body})(args...) where {Args, Body}
     args_ = interpret(Args)
-    kwargs_ = interpret(Kwargs)
     body = interpret(Body)
     quote
-        $args_ = args
-        @unpack $kwargs_ = kwargs
-        $body
+        let $args_ = args
+            $body
+        end
+    end
+end
+
+struct Unset end
+
+@generated function (::RuntimeFn{Args, Kwargs, Body})(args...; kwargs...) where {Args, Kwargs, Body}
+    args_   = interpret(Args) # Expr
+    kwargs_ = map(interpret(Kwargs).args) do expr
+                    @match expr begin
+                        a::Symbol            => (a, Unset())
+                        :($(k::Symbol) = $v) => (k, v)
+                        e                    =>
+                            error("invalid kwargs definition: $(e)")
+                    end
+             end
+    body = interpret(Body)
+    function get_kwds(::Type{Base.Iterators.Pairs{A, B, C, NamedTuple{Kwds,D}}}) where {Kwds, A, B, C, D}
+        Kwds
+    end
+    kwds = gensym("kwds")
+    feed_in_kwds = get_kwds(kwargs)
+
+    unpack_kwargs = map(kwargs_) do (k, default)
+        k in feed_in_kwds && return :($k = $kwds[$(QuoteNode(k))])
+        default === Unset() && error("no default value for keyword argument $(k)")
+        return :($k = $default)
+    end
+    assign_block = [
+        :($kwds = kwargs),
+        :($args_ = args),
+        unpack_kwargs...
+    ]
+    quote
+        let $(assign_block...)
+            $body
+        end
     end
 end
 
@@ -101,20 +138,20 @@ function closure_conv_staged(expr)
                             kwargs = map(x -> x.args[1], kwargs)
                             Kwargs = expr2typelevel(Expr(:tuple, kwargs...))
                             Body   = expr2typelevel(body)
-                            if isempty(frees)
+                            ret = if isempty(frees)
                                 Args = expr2typelevel(Expr(:tuple, args...))
                                 RuntimeFn{Args, Kwargs, Body}()
                             else
                                 Args = expr2typelevel(Expr(:tuple, closure_arg, args...))
                                 non_closure_fn = RuntimeFn{Args, Kwargs, Body}()
-                                ret = :(let frees = $closure_arg
+                                :(let frees = $closure_arg
                                     $Closure{$non_closure_fn, typeof(frees)}(frees)
                                 end)
-                                if name == "" # anonymous function
-                                    ret
-                                else
-                                    :($name = $ret)
-                                end
+                            end
+                            if name == "" # anonymous function
+                                ret
+                            else
+                                :($name = $ret)
                             end
                         end
                     _ => throw("unsupported closures")

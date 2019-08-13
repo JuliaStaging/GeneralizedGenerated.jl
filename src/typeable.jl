@@ -34,6 +34,11 @@ function expr2typelevel(x)
 
             TLSExp{f, args}
             end
+        x :: Tuple =>
+            let f = TLVal{Tuple}
+                args = map(r, x) |> typelevellist
+            TLSExp{f, args}
+            end
         a => TLVal{a}
     end
 end
