@@ -39,6 +39,12 @@ function expr2typelevel(x)
                 args = map(r, x) |> typelevellist
             TLSExp{f, args}
             end
+        nt :: NamedTuple =>
+            let f = TLVal{NamedTuple}
+                arg1 = [r(propertynames(nt))]  |> typelevellist
+                arg2 = map(r, x) |> typelevellist
+            TLSExp{TLSExp{f, arg1}, arg2}
+            end
         a => TLVal{a}
     end
 end
