@@ -1,5 +1,4 @@
 # This file implements closure conversions.
-using Parameters
 
 function mk_closure_static(expr, toplevel::Vector{Expr})
     rec(expr) = mk_closure_static(expr, toplevel)
@@ -13,9 +12,9 @@ function mk_closure_static(expr, toplevel::Vector{Expr})
                 @match inner_expr begin
                     Expr(:function, :($name($(args...), )), body)            ||
                     # (a, b, c, ...) -> body / function (a, b, c, ...) body end
-                    Expr(:-> || :function, Expr(:tuple, args...), body)      ||
+                    Expr(hd && if hd in (:->, :function) end, Expr(:tuple, args...), body)      ||
                     # a -> body
-                    Expr(:-> || :function, a::Symbol, body) && Do(args=[a])  =>
+                    Expr(hd && if hd in (:->, :function) end, a::Symbol, body) && Do(args=[a])  =>
                         let glob_name   = gensym(name),
                             (args, kwargs) = split_args_kwargs(args),
                             body   = rec(body)
@@ -71,7 +70,7 @@ end
 
 struct RuntimeFn{Args, Kwargs, Body} end
 
-EmptyTupleExprTy = expr2typelevel(:())
+EmptyTupleExprTy = as_type(:())
 
 @generated function (::RuntimeFn{Args, EmptyTupleExprTy, Body})(args...) where {Args, Body}
     args_ = interpret(Args)
@@ -130,9 +129,9 @@ function closure_conv_staged(expr)
                 @match inner_expr begin
                     Expr(:function, :($name($(args...), )), body)            ||
                     # (a, b, c, ...) -> body / function (a, b, c, ...) body end
-                    Expr(:-> || :function, Expr(:tuple, args...), body)      ||
+                    Expr(hd && if hd in (:->, :function) end, Expr(:tuple, args...), body)      ||
                     # a -> body
-                    Expr(:-> || :function, a::Symbol, body) && Do(args=[a])  =>
+                    Expr(hd && if hd in (:->, :function) end, a::Symbol, body) && Do(args=[a])  =>
                         let (args, kwargs) = split_args_kwargs(args),
                             body   = rec(body),
                             kwargs = map(x -> x.args[1], kwargs)
