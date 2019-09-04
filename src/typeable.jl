@@ -27,10 +27,10 @@ end
 
 @trait Typeable{T} begin
     as_type  :: T => Type{<:TypeLevel}
-    as_types :: AbstractArray{T} => Type{<:TypeLevel}
-    as_types(many) = foldr(many, init=TLNil) do each, prev
-        TLCons{as_type(each), prev}
-    end
+end
+
+as_types(many) = foldr(many, init=TLNil) do each, prev
+    TLCons{as_type(each), prev}
 end
 
 # compat
@@ -39,9 +39,8 @@ expr2typelevel = as_type
 
 @implement Typeable{Expr} begin
     function as_type(x::Expr)
-        @when Expr(hd, tl...) = x begin
-            hd = as_type(hd)
-            args = as_types(tl)
+        @when Expr(args...) = x begin
+            args = as_types(args)
             f  = TLVal{Expr}
             TLSExp{f, args}
         @otherwise
@@ -83,7 +82,7 @@ end
 end
 
 @implement Typeable{Type} begin
-    as_type(x) = x
+    as_type(x) = TLVal{x}
 end
 
 const sym_to_string(x::Symbol)::String = string(x)
