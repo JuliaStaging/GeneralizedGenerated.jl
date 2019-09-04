@@ -5,7 +5,9 @@ version = "0.1.0"
 
 [deps]
 CanonicalTraits = "a603d957-0e48-4f86-8fbd-0b7bc66df689"
+JuliaVariables = "b14d175d-62b4-44ba-8fb7-3064adc8c3ec"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
+NameResolution = "71a1bf82-56d0-4bbc-8a3c-48b961074391"
 
 [compat]
 julia = "1"

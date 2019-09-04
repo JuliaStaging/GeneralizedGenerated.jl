@@ -25,12 +25,18 @@ function interpret(t::Type{TLSExp{Fn, Args}}) where {Fn, Args}
     interpret(Fn)(args...)
 end
 
+Base.show(io::IO, t::Type{<:TypeLevel}) = show(io, interpret(t))
+
 @trait Typeable{T} begin
     as_type  :: T => Type{<:TypeLevel}
 end
 
 as_types(many) = foldr(many, init=TLNil) do each, prev
     TLCons{as_type(each), prev}
+end
+
+from_types(many) = foldr(many, init=TLNil) do each, prev
+    TLCons{each, prev}
 end
 
 # compat
@@ -82,8 +88,12 @@ end
 end
 
 @implement Typeable{Type} begin
-    as_type(x) = TLVal{x}
+    as_type(x) = x
 end
+
+# @implement Typeable{Arr} where {T, Arr <: AbstractArray{T, 1}} begin
+#     as_type(x) = as_types
+# end
 
 const sym_to_string(x::Symbol)::String = string(x)
 @implement Typeable{String} begin
@@ -92,4 +102,8 @@ const sym_to_string(x::Symbol)::String = string(x)
             args = [Symbol(x)] |> as_types
             TLSExp{f, args}
         end
+end
+
+@implement Typeable{Nothing} begin
+    as_type(x) = TLVal{nothing}
 end
