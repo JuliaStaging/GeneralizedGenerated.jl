@@ -86,8 +86,8 @@ named_tuple_maker(p...) = (;p...)
 @implement Typeable{NamedTuple} begin
     function as_type(x)
         f = TLVal{NamedTuple}
-        args = [k => v for (k,v) in zip(named_tuple_keys(x),values(x))]
-        TLSExp{TLVal{named_tuple_maker}, args |> as_types}
+        args = [k => v for (k,v) in zip(named_tuple_keys(x),values(x))] |> as_types
+        TLSExp{TLVal{named_tuple_maker}, args}
     end
 end
 
