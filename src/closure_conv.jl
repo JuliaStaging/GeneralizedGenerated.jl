@@ -1,6 +1,6 @@
 # This file implements closure conversions.
 
-function top_level_closure_conv(def_module::Module, ex::Expr)
+function top_level_closure_conv(def_module::Module, ex)
 
     function build_argument(arg) :: Argument
         @when Expr(:kw, _...) = arg begin

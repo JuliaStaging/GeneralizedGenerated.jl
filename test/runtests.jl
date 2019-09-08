@@ -76,6 +76,17 @@ end
 end
 
 
+@testset "mk funcs" begin
+
+f_ = mk_function(:((x, y) -> x + y))
+@test f_(1, 2) == 3
+
+f_ = mk_function(:(function (x, y) x + y end))
+@test f_(1, 2) == 3
+
+
+end
+
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)

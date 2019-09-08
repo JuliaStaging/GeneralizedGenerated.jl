@@ -17,11 +17,10 @@ metaprogramming.
 ```julia
 using GG
 
-@generated function f(x)
+@gg function f(x)
     quote
-        y = x
-        a -> y + a
-    end |> gg
+        a -> x + a
+    end
 end
 
 f(1)(2) # => 3
@@ -37,7 +36,7 @@ Note there're some restrictions to the closures of generated functions yet:
 - Default arguments doesn't work unless they're constants. You can just splice variables into the AST to achieve the same   functionlity. The following code works.
 
     ```julia
-    @generated function f(x)
+    @gg function f(x)
         k = 10
         quote
             d = k + 10
@@ -61,4 +60,13 @@ f(1, 2)
 f = mk_function([:x, :y]#= args =#, []#= kwargs =#, :(x + y))
 f(1, 2)
 # => 3
+
+
+module GoodGame
+    xxx = 10
+end
+# Specify global module
+f = mk_function(GoodGame, :(function () xxx end))
+f()
+# => 10
 ```
