@@ -14,29 +14,31 @@ struct Arguments
     kwargs :: Vector{Argument}
 end
 
-@implement Typeable{Unset} begin
-    as_type(_) = TLSExp{TLVal{Unset}, TLNil}
-end
+@implement Typeable{Unset}
 
 @implement Typeable{Argument} begin
-    as_type(arg) =
-        let f = TLVal{Argument}
-            args = [arg.name, arg.type, arg.default] |> as_types
-            TLSExp{f, args}
+    to_type(arg) =
+        let f = Argument
+            args = [arg.name, arg.type, arg.default] |> to_typelist
+            TApp{Argument, f, args}
         end
 end
 
 
-@implement Typeable{Arguments} begin
-    as_type(args) =
-        let f = TLVal{Arguments}
-            args = [args.args |> as_types, args.kwargs |> as_types] |> from_types
-            TLSExp{f, args}
-        end
-end
+# @implement Typeable{Arguments} begin
+#     to_type(args) =
+#         let f = Arguments
+#             args = [
+#                 list(args.args...) |> to_typelist,
+#                 list(args.kwargs...) |> to_typelist
+#             ] |> types_to_typelist
+#             TApp{f, args, Arguments}
+#         end
+# end
 
-function _ass_positional_args!(assign_block::Vector{Expr}, args :: Vector{Argument}, ninput::Int, pargs :: Symbol)
-    for (i, arg) in pairs(args)
+function _ass_positional_args!(assign_block::Vector{Expr}, args :: List{Argument}, ninput::Int, pargs :: Symbol)
+    i = 1
+    for arg in args
         ass = arg.name
         if arg.type !== nothing
             ass = :($ass :: $(arg.type))
@@ -48,10 +50,11 @@ function _ass_positional_args!(assign_block::Vector{Expr}, args :: Vector{Argume
             ass = :($ass = $pargs[$i])
         end
         push!(assign_block, ass)
+        i += 1
     end
 end
 
-@generated function (::RuntimeFn{Args, TLNil, Body})(pargs...) where {Args, Body}
+@generated function (::RuntimeFn{Args, TNil{Argument}, Body})(pargs...) where {Args, Body}
     args   = interpret(Args)
     ninput = length(pargs)
     assign_block = Expr[]
@@ -197,7 +200,9 @@ function closure_conv(ex::ScopedFunc)
         sig = inject_freesyms_as_arg!(freesyms, sig, check_fun_mut)
         argnames = Symbol[[arg.name for arg in sig.args];[arg.name for arg in sig.kwargs]]
         body = process_mutable_cells!(argnames, bounds, closure_conv(body))
-        fn = RuntimeFn{as_types(sig.args), as_types(sig.kwargs), as_type(body)}()
+        Args = to_typelist(sig.args)
+        Kwargs = to_typelist(sig.kwargs)
+        fn = RuntimeFn{Args, Kwargs, to_type(body)}()
         if !isempty(freesyms)
             tp = Expr(:tuple, freesyms...)
             fn = :(let _free = $tp; $Closure{$fn, $typeof($tp)}(_free) end)

@@ -2,11 +2,13 @@ module GG
 using MLStyle
 using JuliaVariables
 using NameResolution
+using CanonicalTraits
+using DataStructures
+List = LinkedList
 
-export closure_conv_static, @closure_conv_static, gg, expr2typelevel, interpret, closure_conv_staged
+export gg, expr2typelevel, interpret
 export RuntimeFn, mk_function
-
-export as_type, as_types
+export to_type, to_typelist, types_to_typelist
 
 include("utils.jl")
 include("typeable.jl")

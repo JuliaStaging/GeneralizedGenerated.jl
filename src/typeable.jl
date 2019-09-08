@@ -1,54 +1,65 @@
-using CanonicalTraits
-abstract type TypeLevel end
-struct TLCons{Hd, Tl} <: TypeLevel end
-struct TLNil <: TypeLevel end
-struct TLVal{Val} <: TypeLevel end
-struct TLSExp{Fn, Args} <: TypeLevel end
+abstract type TypeLevel{T} end
+struct TVal{T, Val} <: TypeLevel{T} end
+struct TApp{Ret, Fn, Args} <: TypeLevel{Ret} end
+struct TCons{T, Hd, Tl} <: TypeLevel{List{T}} end
+struct TNil{T} <: TypeLevel{List{T}} end
 
-function interpret(t::Type{TLNil})
-    []
+function interpret(t::Type{TNil{T}}) where T
+    nil(T)
 end
 
-function interpret(t::Type{TLVal{Val}}) where Val
-    Val
+function interpret(t::Type{TVal{T, V}}) where {T, V}
+    V
 end
 
-function interpret(t::Type{TLCons{Hd, Tl}}) where {Hd, Tl}
-    tl = interpret(Tl)
-    @assert tl isa Vector
-    [interpret(Hd), tl...]
+function interpret(t::Type{TCons{T, Hd, Tl}}) where {T, Hd, Tl}
+    tl :: List{T} = from_type(Tl)
+    cons(from_type(Hd), tl)
 end
 
-function interpret(t::Type{TLSExp{Fn, Args}}) where {Fn, Args}
-    args = interpret(Args)
-    @assert args isa Vector
-    interpret(Fn)(args...)
+function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
+    args = from_type(Args)
+    Fn(args...) :: Ret
 end
 
-Base.show(io::IO, t::Type{<:TypeLevel}) = show(io, interpret(t))
+
+Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = print(io, "encode{$T}")
+# Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show(io, interpret(t))
 
 @trait Typeable{T} begin
-    as_type  :: T => Type{<:TypeLevel}
+    to_type    :: T => Type{<:TypeLevel{T}}
+    to_type(x::T) = TVal{T, x}
+    from_type  :: Type{<:TypeLevel{T}} => T
+    from_type(t::Type{<:TypeLevel{T}}) = interpret(t)
 end
 
-as_types(many) = foldr(many, init=TLNil) do each, prev
-    TLCons{as_type(each), prev}
-end
+to_typelist(many) =
+    let T = eltype(many)
+        foldr(many, init=TNil{T}) do each, prev
+            TCons{T, to_type(each), prev}
+        end
+    end
 
-from_types(many) = foldr(many, init=TLNil) do each, prev
-    TLCons{each, prev}
-end
+types_to_typelist(many) =
+    let T = eltype(many)
+        foldr(many, init=TNil{T}) do each, prev
+            TCons{T, each, prev}
+        end
+    end
 
 # compat
-expr2typelevel = as_type
-# typelevellist  = as_types
+expr2typelevel = to_typelist
+
+@implement Typeable{L} where {T, L <: List{T}} begin
+    to_type(x) = to_typelist(x)
+end
 
 @implement Typeable{Expr} begin
-    function as_type(x::Expr)
+    function to_type(x::Expr)
         @when Expr(args...) = x begin
-            args = as_types(args)
-            f  = TLVal{Expr}
-            TLSExp{f, args}
+            args = to_typelist(args)
+            f  = Expr
+            TApp{Expr, f, args}
         @otherwise
             error("impossible")
         end
@@ -56,66 +67,49 @@ expr2typelevel = as_type
 end
 
 @implement Typeable{LineNumberNode} begin
-    function as_type(ln)
-        f = TLVal{LineNumberNode}
-        args = Any[ln.line, ln.file] |> as_types
-        TLSExp{f, args}
+    function to_type(ln)
+        f = LineNumberNode
+        args = Any[ln.line, ln.file] |> to_typelist
+        TApp{LineNumberNode, f, args}
     end
 end
 
 @implement Typeable{QuoteNode} begin
-    function as_type(x)
-        f = TLVal{QuoteNode}
-        args = [x.value] |> as_types
-        TLSExp{f, args}
+    function to_type(x)
+        f = QuoteNode
+        args = [x.value] |> to_typelist
+        TApp{QuoteNode, f, args}
     end
 end
 
-@implement Typeable{Tuple} begin
-    function as_type(x)
-        f = TLVal{Tuple}
-        args = collect(x) |> as_types
-        TLSExp{f, args}
+@implement Typeable{Tp} where Tp <: Tuple  begin
+    function to_type(x)
+        args = collect(x) |> to_typelist
+        TApp{Tp, tuple, args}
     end
 end
 
-named_tuple_keys(::NamedTuple{K,V}) where {K,V} = K 
+const named_tuple_maker(p...) = (;p...)
 
-named_tuple_maker(p...) = (;p...)
-
-@implement Typeable{NamedTuple} begin
-    function as_type(x)
-        f = TLVal{named_tuple_maker}
-        args = [k => v for (k,v) in zip(named_tuple_keys(x),values(x))] |> as_types
-        TLSExp{f, args}
+@implement Typeable{NamedTuple{Ks, Ts}} where {Ks, Ts} begin
+    function to_type(x)
+        f = named_tuple_maker
+        args = [kv for kv in zip(Ks, values(x))] |> to_typelist
+        TApp{NamedTuple{Ks, Ts}, f, args}
     end
 end
 
-@implement Typeable{Symbol} begin
-    as_type(x) = TLVal{x}
-end
+@implement Typeable{Symbol}
+@implement Typeable{T} where T <: Number
+@implement Typeable{Type}
+@implement Typeable{Nothing}
 
-@implement Typeable{T} where T <: Number begin
-    as_type(x) = TLVal{x}
-end
-
-@implement Typeable{Type} begin
-    as_type(x) = x
-end
-
-# @implement Typeable{Arr} where {T, Arr <: AbstractArray{T, 1}} begin
-#     as_type(x) = as_types
-# end
-
-const sym_to_string(x::Symbol)::String = string(x)
 @implement Typeable{String} begin
-    as_type(x) =
-        let f = TLVal{sym_to_string}
-            args = [Symbol(x)] |> as_types
-            TLSExp{f, args}
-        end
-end
-
-@implement Typeable{Nothing} begin
-    as_type(x) = TLVal{nothing}
+    function to_type(x::String)
+        wrapped = Symbol(x) |> to_type
+        TVal{String, wrapped}
+    end
+    function from_type(::Type{TVal{String, V}}) where V
+        string(V)
+    end
 end

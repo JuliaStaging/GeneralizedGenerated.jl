@@ -98,14 +98,8 @@ end
 #     end
 #     @test f(1)(2) == 3
 
-#     mk_function(args, kwargs, body) =
-#     let Args   = args |> expr2typelevel,
-#         Kwargs = kwargs |> expr2typelevel,
-#         Body   = body |> expr2typelevel
-#         RuntimeFn{Args, Kwargs, Body}()
-#     end
 
-#     g_f = mk_function(:(x, y), :(), :(x + y))
+#     g_f = mk_function([:x, :y], [], :(x + y))
 #     @test g_f(10, 2) == 12
 
 #     eval(:(hpre(x,y) = x+y))
@@ -116,8 +110,12 @@ end
 #     hpre(1, 2)
 #     static_f(1, 2)
 
+#     @info :GG_approach
 #     @btime $g_f(1, 2)
+
+#     @info :eval
 #     @btime $hpre(1, 2)
+
 #     @btime $static_f(1, 2)
 
 
