@@ -1,117 +1,62 @@
 # This file implements closure conversions.
-using Parameters
-
-function mk_closure_static(expr, toplevel::Vector{Expr})
-    rec(expr) = mk_closure_static(expr, toplevel)
-    @match expr begin
-        # main logic
-        Expr(:scope, _, frees, _, inner_expr) =>
-            let closure_arg = :($(frees...), ),
-                name = "",
-                args   = Symbol[]
-
-                @match inner_expr begin
-                    Expr(:function, :($name($(args...), )), body)            ||
-                    # (a, b, c, ...) -> body / function (a, b, c, ...) body end
-                    Expr(:-> || :function, Expr(:tuple, args...), body)      ||
-                    # a -> body
-                    Expr(:-> || :function, a::Symbol, body) && Do(args=[a])  =>
-                        let glob_name   = gensym(name),
-                            (args, kwargs) = split_args_kwargs(args),
-                            body   = rec(body)
-
-                            (fn_expr, ret) = if isempty(frees)
-                                fn_expr = Expr(
-                                    :function,
-                                    :($glob_name($(args...); $(kwargs...))),
-                                    body
-                                )
-                                (fn_expr, :glob_name)
-                            else
-                                fn_expr = Expr(
-                                    :function,
-                                    :($glob_name($closure_arg, $(args...); $(kwargs...))),
-                                    body
-                                )
-                                ret = :(let frees = $closure_arg
-                                    $Closure{$glob_name, typeof(frees)}(frees)
-                                end)
-                                (fn_expr, ret)
-                            end
-
-                            push!(toplevel, fn_expr)
-
-                            if name == "" # anonymous function
-                                ret
-                            else
-                                :($name = $glob_name)
-                            end
-                        end
-
-                    _ => throw("unsupported closures")
-                end
-            end
-        Expr(hd, tl...) => Expr(hd, map(rec, tl)...)
-        a               => a
-    end
-end
-
-
-function closure_conv_static(block)
-    defs = Expr[]
-    push!(defs, mk_closure_static(scoping(block), defs))
-    Expr(:block, defs...)
-end
-
-
-macro closure_conv_static(block)
-    closure_conv_static(block) |> esc
-end
-
-
 struct RuntimeFn{Args, Kwargs, Body} end
-
-EmptyTupleExprTy = expr2typelevel(:())
-
-@generated function (::RuntimeFn{Args, EmptyTupleExprTy, Body})(args...) where {Args, Body}
-    args_ = interpret(Args)
-    body = interpret(Body)
-    quote
-        let $args_ = args
-            $body
-        end
-    end
-end
-
 struct Unset end
 
-@generated function (::RuntimeFn{Args, Kwargs, Body})(args...; kwargs...) where {Args, Kwargs, Body}
-    args_   = interpret(Args) # Expr
-    kwargs_ = map(interpret(Kwargs).args) do expr
-                    @match expr begin
-                        a::Symbol            => (a, Unset())
-                        :($(k::Symbol) = $v) => (k, v)
-                        e                    =>
-                            error("invalid kwargs definition: $(e)")
-                    end
-             end
-    body = interpret(Body)
-    function get_kwds(::Type{Base.Iterators.Pairs{A, B, C, NamedTuple{Kwds,D}}}) where {Kwds, A, B, C, D}
-        Kwds
-    end
-    kwds = gensym("kwds")
-    feed_in_kwds = get_kwds(kwargs)
 
-    unpack_kwargs = map(kwargs_) do (k, default)
-        k in feed_in_kwds && return :($k = $kwds[$(QuoteNode(k))])
-        default === Unset() && error("no default value for keyword argument $(k)")
-        return :($k = $default)
+struct Argument
+    name    :: Symbol
+    type    :: Union{Nothing, Any}
+    default :: Union{Unset,  Any}
+end
+
+struct Arguments
+    args   :: Vector{Argument}
+    kwargs :: Vector{Argument}
+end
+
+@implement Typeable{Unset} begin
+    as_type(_) = TLSExp{TLVal{Unset}, TLNil}
+end
+
+@implement Typeable{Argument} begin
+    as_type(arg) =
+        let f = TLVal{Argument}
+            args = [arg.name, arg.type, arg.default] |> as_types
+            TLSExp{f, args}
+        end
+end
+
+
+@implement Typeable{Arguments} begin
+    as_type(args) =
+        let f = TLVal{Arguments}
+            args = [args.args |> as_types, args.kwargs |> as_types] |> from_types
+            TLSExp{f, args}
+        end
+end
+
+function _ass_positional_args!(assign_block::Vector{Expr}, args :: Vector{Argument}, ninput::Int, pargs :: Symbol)
+    for (i, arg) in pairs(args)
+        ass = arg.name
+        if arg.type !== nothing
+            ass = :($ass :: $(arg.type))
+        end
+        if i > ninput
+            arg.default === Unset() && error("Input arguments too few.")
+            ass = :($ass = $(arg.default))
+        else
+            ass = :($ass = $pargs[$i])
+        end
+        push!(assign_block, ass)
     end
-    assign_block = [
-        :($kwds = kwargs),
-        :($args_ = args),
-        unpack_kwargs...
-    ]
+end
+
+@generated function (::RuntimeFn{Args, TLNil, Body})(pargs...) where {Args, Body}
+    args   = interpret(Args)
+    ninput = length(pargs)
+    assign_block = Expr[]
+    body = interpret(Body)
+    _ass_positional_args!(assign_block, args, ninput, :pargs)
     quote
         let $(assign_block...)
             $body
@@ -119,49 +64,174 @@ struct Unset end
     end
 end
 
-function closure_conv_staged(expr)
-    rec = closure_conv_staged
-    @match expr begin
-        # main logic
-        Expr(:scope, _, frees, _, inner_expr) =>
-            let closure_arg = Expr(:tuple, frees...),
-                name = "",
-                args   = Symbol[]
-                @match inner_expr begin
-                    Expr(:function, :($name($(args...), )), body)            ||
-                    # (a, b, c, ...) -> body / function (a, b, c, ...) body end
-                    Expr(:-> || :function, Expr(:tuple, args...), body)      ||
-                    # a -> body
-                    Expr(:-> || :function, a::Symbol, body) && Do(args=[a])  =>
-                        let (args, kwargs) = split_args_kwargs(args),
-                            body   = rec(body),
-                            kwargs = map(x -> x.args[1], kwargs)
-                            Kwargs = expr2typelevel(Expr(:tuple, kwargs...))
-                            Body   = expr2typelevel(body)
-                            ret = if isempty(frees)
-                                Args = expr2typelevel(Expr(:tuple, args...))
-                                RuntimeFn{Args, Kwargs, Body}()
-                            else
-                                Args = expr2typelevel(Expr(:tuple, closure_arg, args...))
-                                non_closure_fn = RuntimeFn{Args, Kwargs, Body}()
-                                :(let frees = $closure_arg
-                                    $Closure{$non_closure_fn, typeof(frees)}(frees)
-                                end)
-                            end
-                            if name == "" # anonymous function
-                                ret
-                            else
-                                :($name = $ret)
-                            end
-                        end
-                    _ => throw("unsupported closures")
-                end
+@generated function (::RuntimeFn{Args, Kwargs, Body})(pargs...; pkwargs...) where {Args, Kwargs, Body}
+    args   = interpret(Args)
+    kwargs = interpret(Kwargs)
+    ninput = length(pargs)
+    assign_block = Expr[]
+    body = interpret(Body)
+    if isempty(kwargs)
+        _ass_positional_args!(assign_block, args, ninput, :pargs)
+    else
+        function get_kwds(::Type{Base.Iterators.Pairs{A, B, C, NamedTuple{Kwds,D}}}) where {Kwds, A, B, C, D}
+            Kwds
+        end
+        kwds = gensym("kwds")
+        feed_in_kwds = get_kwds(pkwargs)
+        push!(assign_block, :($kwds = pkwargs))
+        _ass_positional_args!(assign_block, args, ninput, :pargs)
+        for kwarg in kwargs
+            ass = k = kwarg.name
+            if kwarg.type !== nothing
+                ass = :($ass :: $(kwarg.type))
             end
-        Expr(hd, tl...) => Expr(hd, map(rec, tl)...)
-        a               => a
+            if k in feed_in_kwds
+                ass = :($ass = $kwds[$(QuoteNode(k))])
+            else
+                default = kwarg.default
+                default === Unset() && error("no default value for keyword argument $(k)")
+                ass = :($ass = $default)
+            end
+            push!(assign_block, ass)
+        end
+    end
+    quote
+        let $(assign_block...)
+            $body
+        end
     end
 end
 
-function gg(x)
-    closure_conv_staged(scoping(x))
+
+function build_argument(arg) :: Argument
+    @when Expr(:kw, _...) = arg begin
+        arg.head = :(=)
+    end
+    default = Unset()
+    @when :($a = $b) = arg begin
+        default = closure_conv(b)
+        arg = a
+    end
+    type = nothing
+    @when :($a :: $b) = arg begin
+        arg = a
+        type = closure_conv(b)
+    @when :(:: $b) = arg
+        arg = :_
+        type = closure_conv(b)
+    end
+
+    @when ::ScopedVar = arg begin
+        arg = arg.sym
+    end
+
+    if !(arg isa Symbol)
+        error("not supported argument name $arg.")
+    end
+    Argument(arg, type, default)
+end
+
+function build_arguments(args, kwargs)
+    Arguments(map(build_argument, args), map(build_argument, kwargs))
+end
+
+"""
+also canonicalize the arguments
+"""
+inject_freesyms_as_arg!(freesyms::Vector{Symbol}, call, ref::Ref{Union{Nothing, ScopedVar}}) =
+    @when :($f($(args...))) = call begin
+        (args, kwargs) = split_args_kwargs(args)
+        ref.x = f
+        build_arguments([freesyms..., args...], kwargs)
+
+    @when Expr(:tuple, args...) = call
+        (args, kwargs) = split_args_kwargs(args)
+        build_arguments([freesyms..., args...], kwargs)
+
+
+    @when f :: ScopedVar = call
+        build_arguments([freesyms..., f], [])
+
+    @when :($f :: $t) = call
+        error("'annotation' not implemented")
+    #     f = inject_freesyms_as_arg!(freesyms, f, ref)
+    #     :($f :: $t)
+
+    @when :($f where {$(ts...)}) = call
+        error("'where' not implemented")
+    #     f = inject_freesyms_as_arg!(freesyms, f, ref)
+    #     :($f where {$(ts...)})
+
+    @otherwise
+        error("Malformed function signature $call.")
+
+    end
+
+function process_mutable_cells!(argnames :: Vector{Symbol}, bounds::Vector{LocalVar}, body)
+    # mutable free variables stored in Core.Box
+    stmts = Expr[]
+    for bound in bounds
+        if bound.is_mutable.x
+            sym = bound.sym
+            if sym in argnames
+                push!(stmts, :($sym = $Core.Box()))
+            else
+                push!(stmts, :($sym = $Core.Box($sym)))
+            end
+        end
+    end
+    @when Expr(:block, suite...) = body begin
+        Expr(:block, stmts..., suite...)
+    @otherwise
+        Expr(:block, stmts..., body)
+    end
+end
+
+function closure_conv(ex::ScopedFunc)
+    scope  = ex.scope
+    frees  = LocalVar[values(scope.freevars)...]
+    bounds = LocalVar[values(scope.bounds)...]
+    freesyms = Symbol[x.sym for x in frees]
+    @when Expr(hd, sig, body) = ex.func begin
+        check_fun_mut = Ref{Union{Nothing, ScopedVar}}(nothing)
+        sig = inject_freesyms_as_arg!(freesyms, sig, check_fun_mut)
+        argnames = Symbol[[arg.name for arg in sig.args];[arg.name for arg in sig.kwargs]]
+        body = process_mutable_cells!(argnames, bounds, closure_conv(body))
+        fn = RuntimeFn{as_types(sig.args), as_types(sig.kwargs), as_type(body)}()
+        if !isempty(freesyms)
+            tp = Expr(:tuple, freesyms...)
+            fn = :(let _free = $tp; $Closure{$fn, $typeof($tp)}(_free) end)
+        end
+        if check_fun_mut.x isa LocalVar
+            sym = check_fun_mut.x |> closure_conv
+            fn = :($sym = $fn)
+        end
+        fn
+    @otherwise
+        error("impossible")
+    end
+end
+
+function closure_conv(ex::ScopedGenerator)
+    error("Not implemented")
+end
+
+function closure_conv(ex::ScopedVar)
+    var = ex.scope[ex.sym]
+    var isa GlobalVar && return var
+    if var.is_shared.x && var.is_mutable.x
+        return :($(var.sym).contents)
+    end
+    return var.sym
+end
+
+function closure_conv(ex)
+    @match ex begin
+        Expr(hd, args...) => Expr(hd, map(closure_conv, args)...)
+        a => a
+    end
+end
+
+function gg(ex)
+    closure_conv(solve_from_local(ex))
 end
