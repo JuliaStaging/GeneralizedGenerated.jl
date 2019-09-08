@@ -6,12 +6,13 @@ using CanonicalTraits
 using DataStructures
 List = LinkedList
 
-export gg, expr2typelevel, interpret
+export gg, @gg, expr2typelevel, interpret
 export RuntimeFn, mk_function
 export to_type, to_typelist, types_to_typelist
 
 include("utils.jl")
 include("typeable.jl")
+include("runtime_funcs.jl")
 include("closure.jl")
 include("closure_conv.jl")
 

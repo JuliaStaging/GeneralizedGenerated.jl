@@ -14,37 +14,34 @@ islinenumbernode(x) = x isa LineNumberNode
 
 @testset "no kwargs" begin
 
-@generated function f1(a)
+@gg function f1(a)
     quote
-        z = a
-        x -> z + x
-    end |> gg
+        x -> a + x
+    end
 end
 
 @test f1(1)(2) == 3
 
-@generated function f2(a)
+@gg function f2(a)
     quote
-        z = a
         x -> begin
-            z += 2
-            x + z
+            a += 2
+            x + a
         end
-    end |> gg
+    end
 end
 
 @test f2(1)(2) == 5
 
 
-@generated function f3(a)
+@gg function f3(a)
     quote
-        z = a
         k = 20
         x -> begin
-            z += 2
-            x + z + k
+            a += 2
+            x + a + k
         end
-    end |> gg
+    end
 end
 
 @test f3(1)(2) == 25
@@ -54,13 +51,12 @@ end
 
 @testset "kwargs" begin
 
-@generated function f4(a)
+@gg function f4(a)
     quote
-        q = a
         function z(x, k=1)
-            x + 20 + q + k
+            x + 20 + a + k
         end
-    end |> gg
+    end
 end
 
 @test f4(10)(2) == 33
@@ -68,13 +64,12 @@ end
 
 @testset "namedtuple" begin
 
-@generated function f5(a)
+@gg function f5(a)
     quote
-        q = a
         function z(x, k=1)
-            (x=x, k=k, q=q)
+            (x=x, k=k, q=a)
         end
-    end |> gg
+    end
 end
 
 @test f5(10)(2) == (x=2, k=1, q=10)
