@@ -1,6 +1,8 @@
 using GG
+using JuliaVariables
 using Test
 using BenchmarkTools
+
 
 rmlines(ex::Expr) = begin
     hd = ex.head
@@ -62,6 +64,20 @@ end
 end
 
 @test f4(10)(2) == 33
+end
+
+@testset "namedtuple" begin
+
+@generated function f5(a)
+    quote
+        q = a
+        function z(x, k=1)
+            (x=x, k=k, q=q)
+        end
+    end |> gg
+end
+
+@test f5(10)(2) == (x=2, k=1, q=10)
 end
 
 

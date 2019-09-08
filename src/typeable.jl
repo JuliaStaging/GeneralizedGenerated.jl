@@ -23,14 +23,18 @@ function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
 end
 
 
-Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = print(io, "encode{$T}")
-# Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show(io, interpret(t))
+Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show_repr(io, t)
 
 @trait Typeable{T} begin
     to_type    :: T => Type{<:TypeLevel{T}}
     to_type(x::T) = TVal{T, x}
     from_type  :: Type{<:TypeLevel{T}} => T
     from_type(t::Type{<:TypeLevel{T}}) = interpret(t)
+
+    show_repr :: [IO, Type{<:TypeLevel{T}}] => Nothing
+    show_repr(io, t) = begin
+        print(io, from_type(t))
+    end
 end
 
 to_typelist(many) =
@@ -111,5 +115,32 @@ end
     end
     function from_type(::Type{TVal{String, V}}) where V
         string(V)
+    end
+end
+
+using Base.Threads: lock, unlock, SpinLock
+const _modules = Module[]
+const _lock = SpinLock()
+function module_index(m::Module)
+    lock(_lock)
+    try
+        i = findfirst(==(m), _modules)
+        if i === nothing
+            # TODO: thread safe
+            push!(_modules, m)
+            i = length(_modules)
+        end
+        i
+    finally
+        unlock(_lock)
+    end
+end
+
+@implement Typeable{Module} begin
+    function to_type(x::Module)
+        TVal{Module, module_index(x)}
+    end
+    function from_type(:: Type{TVal{Module, V}}) where V
+        _modules[V]
     end
 end

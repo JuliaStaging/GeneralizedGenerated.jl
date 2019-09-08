@@ -126,11 +126,13 @@ function build_argument(arg) :: Argument
 
     @when ::ScopedVar = arg begin
         arg = arg.sym
-    end
 
-    if !(arg isa Symbol)
+    @when ::Symbol = arg
+        nothing
+    @otherwise
         error("not supported argument name $arg.")
     end
+
     Argument(arg, type, default)
 end
 
@@ -152,7 +154,7 @@ inject_freesyms_as_arg!(freesyms::Vector{Symbol}, call, ref::Ref{Union{Nothing, 
         build_arguments([freesyms..., args...], kwargs)
 
 
-    @when f :: ScopedVar = call
+    @when f :: Union{Symbol, ScopedVar} = call
         build_arguments([freesyms..., f], [])
 
     @when :($f :: $t) = call
@@ -177,17 +179,13 @@ function process_mutable_cells!(argnames :: Vector{Symbol}, bounds::Vector{Local
         if bound.is_mutable.x
             sym = bound.sym
             if sym in argnames
-                push!(stmts, :($sym = $Core.Box()))
-            else
                 push!(stmts, :($sym = $Core.Box($sym)))
+            else
+                push!(stmts, :($sym = $Core.Box()))
             end
         end
     end
-    @when Expr(:block, suite...) = body begin
-        Expr(:block, stmts..., suite...)
-    @otherwise
-        Expr(:block, stmts..., body)
-    end
+    Expr(:let, Expr(:block, stmts...), body)
 end
 
 function closure_conv(ex::ScopedFunc)
