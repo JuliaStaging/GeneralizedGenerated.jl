@@ -52,7 +52,7 @@ types_to_typelist(many) =
     end
 
 # compat
-expr2typelevel = to_typelist
+expr2typelevel = to_type
 
 @implement Typeable{L} where {T, L <: List{T}} begin
     to_type(x) = to_typelist(x)
