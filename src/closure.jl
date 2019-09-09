@@ -3,5 +3,5 @@ struct Closure{F, Free}
 end
 
 function (closure::Closure{F, X})(args...; kwargs...) where {F, X}
-    F(closure.frees, args...; kwargs...)
+    F(closure.frees..., args...; kwargs...)
 end

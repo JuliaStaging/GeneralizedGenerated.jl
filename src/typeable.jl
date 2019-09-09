@@ -1,65 +1,146 @@
-abstract type TypeLevel end
-struct TLCons{Hd, Tl} <: TypeLevel end
-struct TLNil <: TypeLevel end
-struct TLVal{Val} <: TypeLevel end
-struct TLSExp{Fn, Args} <: TypeLevel end
+abstract type TypeLevel{T} end
+struct TVal{T, Val} <: TypeLevel{T} end
+struct TApp{Ret, Fn, Args} <: TypeLevel{Ret} end
+struct TCons{T, Hd, Tl} <: TypeLevel{List{T}} end
+struct TNil{T} <: TypeLevel{List{T}} end
 
-function typelevellist(l)
-    foldr(l, init=TLNil) do each, prev
-        TLCons{each, prev}
+function interpret(t::Type{TNil{T}}) where T
+    nil(T)
+end
+
+function interpret(t::Type{TVal{T, V}}) where {T, V}
+    V
+end
+
+function interpret(t::Type{TCons{T, Hd, Tl}}) where {T, Hd, Tl}
+    tl :: List{T} = from_type(Tl)
+    cons(from_type(Hd), tl)
+end
+
+function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
+    args = from_type(Args)
+    Fn(args...) :: Ret
+end
+
+
+Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show_repr(io, t)
+
+@trait Typeable{T} begin
+    to_type    :: T => Type{<:TypeLevel{T}}
+    to_type(x::T) = TVal{T, x}
+    from_type  :: Type{<:TypeLevel{T}} => T
+    from_type(t::Type{<:TypeLevel{T}}) = interpret(t)
+
+    show_repr :: [IO, Type{<:TypeLevel{T}}] => Nothing
+    show_repr(io, t) = begin
+        print(io, from_type(t))
     end
 end
 
-function expr2typelevel(x)
-    r = expr2typelevel
-    @match x begin
-        Expr(hd, tl...) =>
-            let hd = r(hd),
-                tl = map(r, tl) |> typelevellist,
-                f = TLVal{Expr},
-                args = TLCons{hd, tl}
-            TLSExp{f, args}
-            end
-        ln :: LineNumberNode =>
-            let f = TLVal{LineNumberNode},
-               args = [
-                    r(ln.line),
-                    r(ln.file)
-                ] |> typelevellist
-            TLSExp{f, args}
-            end
-        x::QuoteNode =>
-            let f = TLVal{QuoteNode},
-                args = [r(x.value)] |> typelevellist
+to_typelist(many) =
+    let T = eltype(many)
+        foldr(many, init=TNil{T}) do each, prev
+            TCons{T, to_type(each), prev}
+        end
+    end
 
-            TLSExp{f, args}
-            end
-        x :: Tuple =>
-            let f = TLVal{Tuple}
-                args = map(r, x) |> typelevellist
-            TLSExp{f, args}
-            end
-        a => TLVal{a}
+types_to_typelist(many) =
+    let T = eltype(many)
+        foldr(many, init=TNil{T}) do each, prev
+            TCons{T, each, prev}
+        end
+    end
+
+# compat
+expr2typelevel = to_type
+
+@implement Typeable{L} where {T, L <: List{T}} begin
+    to_type(x) = to_typelist(x)
+end
+
+@implement Typeable{Expr} begin
+    function to_type(x::Expr)
+        @when Expr(args...) = x begin
+            args = to_typelist(args)
+            f  = Expr
+            TApp{Expr, f, args}
+        @otherwise
+            error("impossible")
+        end
     end
 end
 
-
-function interpret(t::Type{TLNil})
-    []
+@implement Typeable{LineNumberNode} begin
+    function to_type(ln)
+        f = LineNumberNode
+        args = Any[ln.line, ln.file] |> to_typelist
+        TApp{LineNumberNode, f, args}
+    end
 end
 
-function interpret(t::Type{TLVal{Val}}) where Val
-    Val
+@implement Typeable{QuoteNode} begin
+    function to_type(x)
+        f = QuoteNode
+        args = [x.value] |> to_typelist
+        TApp{QuoteNode, f, args}
+    end
 end
 
-function interpret(t::Type{TLCons{Hd, Tl}}) where {Hd, Tl}
-    tl = interpret(Tl)
-    @assert tl isa Vector
-    [interpret(Hd), tl...]
+@implement Typeable{Tp} where Tp <: Tuple  begin
+    function to_type(x)
+        args = collect(x) |> to_typelist
+        TApp{Tp, tuple, args}
+    end
 end
 
-function interpret(t::Type{TLSExp{Fn, Args}}) where {Fn, Args}
-    args = interpret(Args)
-    @assert args isa Vector
-    interpret(Fn)(args...)
+const named_tuple_maker(p...) = (;p...)
+
+@implement Typeable{NamedTuple{Ks, Ts}} where {Ks, Ts} begin
+    function to_type(x)
+        f = named_tuple_maker
+        args = [kv for kv in zip(Ks, values(x))] |> to_typelist
+        TApp{NamedTuple{Ks, Ts}, f, args}
+    end
+end
+
+@implement Typeable{Symbol}
+@implement Typeable{T} where T <: Number
+@implement Typeable{Type}
+@implement Typeable{Nothing}
+
+@implement Typeable{String} begin
+    function to_type(x::String)
+        wrapped = Symbol(x) |> to_type
+        TVal{String, wrapped}
+    end
+    function from_type(::Type{TVal{String, V}}) where V
+        string(V)
+    end
+end
+
+using Base.Threads: lock, unlock, SpinLock
+const _modules = Module[]
+const _lock = SpinLock()
+function module_index(m::Module)
+    lock(_lock)
+    try
+        i = findfirst(==(m), _modules)
+        if i === nothing
+            # TODO: thread safe
+            push!(_modules, m)
+            i = length(_modules)
+        end
+        i
+    finally
+        unlock(_lock)
+    end
+end
+
+@implement Typeable{Module} begin
+    function to_type(x::Module)
+        TVal{Module, module_index(x)}
+    end
+    function from_type(:: Type{TVal{Module, V}}) where V
+        _modules[V]
+    end
 end
