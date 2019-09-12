@@ -1,17 +1,17 @@
-using Documenter, GG
+using Documenter, GeneralizedGenerated
 
 makedocs(;
-    modules=[GG],
+    modules=[GeneralizedGenerated],
     format=Documenter.HTML(),
     pages=[
         "Home" => "index.md",
     ],
-    repo="https://github.com/thautwarm/GG.jl/blob/{commit}{path}#L{line}",
-    sitename="GG.jl",
+    repo="https://github.com/thautwarm/GeneralizedGenerated.jl/blob/{commit}{path}#L{line}",
+    sitename="GeneralizedGenerated.jl",
     authors="thautwarm",
     assets=String[],
 )
 
 deploydocs(;
-    repo="github.com/thautwarm/GG.jl",
+    repo="github.com/thautwarm/GeneralizedGenerated.jl",
 )

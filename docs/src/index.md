@@ -1,8 +1,8 @@
-# GG.jl
+# GeneralizedGenerated.jl
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [GG]
+Modules = [GeneralizedGenerated]
 ```

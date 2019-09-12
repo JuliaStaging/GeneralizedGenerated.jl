@@ -1,4 +1,4 @@
-using GG
+using GeneralizedGenerated
 using JuliaVariables
 using Test
 using BenchmarkTools
@@ -106,7 +106,7 @@ end
 #     _invokefrozen(f, rt, args...)
 # end
 
-# @testset "GG.jl" begin
+# @testset "GeneralizedGenerated.jl" begin
 #     # Write your own tests here.
 
 #     quote

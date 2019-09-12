@@ -1,13 +1,13 @@
-# GG
+# GeneralizedGenerated
 <!--
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://thautwarm.github.io/GG.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://thautwarm.github.io/GG.jl/dev)
-[![Build Status](https://travis-ci.com/thautwarm/GG.jl.svg?branch=master)](https://travis-ci.com/thautwarm/GG.jl) -->
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/dev)
+[![Build Status](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl.svg?branch=master)](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl) -->
 
-GG enables the generalised generated functions. More concretely,
+GeneralizedGenerated enables the generalised generated functions. More concretely,
 **supports defining closures in generated functions**.
 
-Besides, some utility stuffs relevant to GG's implementation are exported,
+Besides, some utility stuffs relevant to GeneralizedGenerated's implementation are exported,
 which **allows you to keep `eval` and `invokelastest`** away from Julia
 metaprogramming.
 
@@ -15,7 +15,7 @@ metaprogramming.
 ## Support Closures in Generated Functions
 
 ```julia
-using GG
+using GeneralizedGenerated
 
 @gg function f(x)
     quote
@@ -52,7 +52,7 @@ Note there're some restrictions to the closures of generated functions yet:
 ```julia
 # do something almost equivalent to `eval`
 # without introducing the world age problem!
-using GG
+using GeneralizedGenerated
 f = mk_function(:((x, y) -> x + y))
 f(1, 2)
 # => 3

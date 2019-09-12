@@ -1,4 +1,4 @@
-module GG
+module GeneralizedGenerated
 using MLStyle
 using JuliaVariables
 using NameResolution
