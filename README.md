@@ -3,6 +3,8 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/dev)
 [![Build Status](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl.svg?branch=master)](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl)
+[![Codecov](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl)
+
 
 GeneralizedGenerated enables the generalised generated functions. More concretely,
 **supports defining closures in generated functions**.
