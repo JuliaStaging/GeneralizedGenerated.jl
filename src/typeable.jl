@@ -29,7 +29,7 @@ Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show_repr(io, t)
     to_type    :: T => Type{<:TypeLevel{T}}
     to_type(x::T) = TVal{T, x}
     from_type  :: Type{<:TypeLevel{T}} => T
-    from_type(t::Type{<:TypeLevel{T}}) = interpret(t)
+    from_type(t) = interpret(t)
 
     show_repr :: [IO, Type{<:TypeLevel{T}}] => Nothing
     show_repr(io, t) = begin
