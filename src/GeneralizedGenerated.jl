@@ -8,7 +8,7 @@ List = LinkedList
 
 export gg, @gg, top_level_closure_conv, expr2typelevel, interpret
 export RuntimeFn, mk_function
-export to_type, to_typelist, types_to_typelist
+export to_type, to_typelist, types_to_typelist, from_type
 
 include("utils.jl")
 include("typeable.jl")

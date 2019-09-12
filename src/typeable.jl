@@ -1,8 +1,8 @@
 abstract type TypeLevel{T} end
 struct TVal{T, Val} <: TypeLevel{T} end
 struct TApp{Ret, Fn, Args} <: TypeLevel{Ret} end
-struct TCons{T, Hd, Tl} <: TypeLevel{List{T}} end
-struct TNil{T} <: TypeLevel{List{T}} end
+struct TCons{T, Hd, Tl} <: TypeLevel{Cons{T}} end
+struct TNil{T} <: TypeLevel{Nil{T}} end
 
 function interpret(t::Type{TNil{T}}) where T
     nil(T)
@@ -22,12 +22,12 @@ function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
     Fn(args...) :: Ret
 end
 
-
+Base.show(io::IO, t::Type{TypeLevel{T}}) where T = print(io, "TypeLevel{$T}")
 Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show_repr(io, t)
 
 @trait Typeable{T} begin
     to_type    :: T => Type{<:TypeLevel{T}}
-    to_type(x::T) = TVal{T, x}
+    to_type(x) = TVal{T, x}
     from_type  :: Type{<:TypeLevel{T}} => T
     from_type(t) = interpret(t)
 
@@ -55,7 +55,7 @@ types_to_typelist(many) =
 expr2typelevel = to_type
 
 @implement Typeable{L} where {T, L <: List{T}} begin
-    to_type(x) = to_typelist(x)
+    to_type(x) = to_typelist(T[x...])
 end
 
 @implement Typeable{Expr} begin

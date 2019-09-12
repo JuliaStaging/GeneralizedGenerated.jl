@@ -2,6 +2,7 @@ using GeneralizedGenerated
 using JuliaVariables
 using Test
 using BenchmarkTools
+using DataStructures
 
 
 rmlines(ex::Expr) = begin
@@ -86,6 +87,63 @@ f_ = mk_function(:(function (x, y) x + y end))
 
 
 end
+
+@testset "type encoding more datatypes" begin
+
+@gg function f5(a)
+    tp = (1, 2, 3)
+    quote
+        function z(x, k=$tp)
+            (x=x, k=k, q=a)
+        end
+    end
+end
+
+@test f5(10)(2) == (x=2, k=(1, 2, 3), q=10)
+
+
+@gg function f5(a)
+    tp = (a1=1, a2=2, a3=3)
+    quote
+        function z(x, k=$tp)
+            (x=x, k=k, q=a)
+        end
+    end
+end
+
+@test f5(10)(2) == (x=2, k=(a1=1, a2=2, a3=3), q=10)
+
+
+@gg function f5(a)
+    tp = "233"
+    quote
+        function z(x, k=$tp)
+            (x=x, k=k, q=a)
+        end
+    end
+end
+
+@test f5(10)(2) == (x=2, k="233", q=10)
+
+
+@gg function f5(a)
+    tp = list(1, 2, 3)
+    quote
+        function z(x; k=$tp)
+            (x=x, k=k, q=a)
+        end
+    end
+end
+
+@test f5(10)(2) == (x=2, k=list(1, 2, 3), q=10)
+@test f5(10)(2; k=10) == (x=2, k=10, q=10)
+
+end
+
+a = to_type(:(1 + 2))
+@test :(1 + 2) == from_type(a)
+@test string(a) == string(:(1 + 2))
+
 
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
