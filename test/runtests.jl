@@ -145,6 +145,20 @@ a = to_type(:(1 + 2))
 @test string(a) == string(:(1 + 2))
 
 
+@test runtime_eval(1) == 1
+@test mk_function(:(
+    x -> x + 1
+))(2) == 3
+
+@test_throws Any mk_function(quote
+    x -> x + 1
+end)
+
+
+@test runtime_eval(quote
+    x -> x + 1
+end)(1) == 2
+
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)
