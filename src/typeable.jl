@@ -105,7 +105,8 @@ end
 
 @implement Typeable{Symbol}
 @implement Typeable{T} where T <: Number
-@implement Typeable{Type}
+@implement Typeable{T} where T <: Type
+@implement Typeable{T} where T <: Function
 @implement Typeable{Nothing}
 
 @implement Typeable{String} begin

@@ -1,6 +1,8 @@
 struct RuntimeFn{Args, Kwargs, Body} end
 struct Unset end
 
+@implement Typeable{RuntimeFn{Args, Kwargs, Body}} where {Args, Kwargs, Body}
+
 
 struct Argument
     name    :: Symbol
