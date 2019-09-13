@@ -16,7 +16,7 @@ metaprogramming.
 
 ## Background: World Age Problem
 
-See an explanation [here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm) by [Kristoffer Carlsson](https://github.com/KristofferC).
+See an explanation [here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm).
 
 ```julia
 julia> module WorldAgeProblemRaisedHere!
