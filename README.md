@@ -14,6 +14,34 @@ which **allows you to keep `eval` and `invokelastest`** away from Julia
 metaprogramming.
 
 
+## Background: World Age Problem
+
+See an explanation[here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm) by [Kristoffer Carlsson](https://github.com/KristofferC).
+
+```julia
+julia> module WorldAgeProblemRaisedHere!
+           do_this!(one_ary_fn_ast::Expr, arg) = begin
+               eval(one_ary_fn_ast)(arg)
+           end
+           res = do_this!(:(x -> x + 1), 2)
+           @info res
+       end
+ERROR: MethodError: no method matching (::getfield(Main.WorldAgeProblemRaisedHere!, Symbol("##1#2")))(::Int64)
+The applicable method may be too new: running in world age 26095, while current world is 26096.
+
+julia> module WorldAgeProblemRaisedHere!
+           using GeneralizedGenerated
+           do_this!(one_ary_fn_ast::Expr, arg) = begin
+               runtime_eval(one_ary_fn_ast)(arg)
+           end
+           res = do_this!(:(x -> x + 1), 2)
+           @info res
+       end
+WARNING: replacing module WorldAgeProblemRaisedHere!.
+[ Info: 3
+Main.WorldAgeProblemRaisedHere!
+```
+
 ## Support Closures in Generated Functions
 
 ```julia
@@ -26,6 +54,7 @@ using GeneralizedGenerated
 end
 
 f(1)(2) # => 3
+
 ```
 
 P.S: We can figure out a pure Julia way to resolve symbols, thus free variables and
@@ -71,4 +100,20 @@ end
 f = mk_function(GoodGame, :(function () xxx end))
 f()
 # => 10
+```
+
+Tips
+==============
+
+Note, `mk_function` just accepts a function-like AST, to eval more kinds of
+ASTs, use `runtime_eval`:
+
+```julia
+a = 0
+runtime_eval(:(a + 1)) == 1 # true
+
+module GoodGameOnceAgain
+    a = 2
+end
+runtime_eval(GoodGameOnceAgain, :(a + 3)) == 5
 ```
