@@ -16,7 +16,7 @@ metaprogramming.
 
 ## Background: World Age Problem
 
-See an explanation[here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm) by [Kristoffer Carlsson](https://github.com/KristofferC).
+See an explanation [here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm) by [Kristoffer Carlsson](https://github.com/KristofferC).
 
 ```julia
 julia> module WorldAgeProblemRaisedHere!
@@ -29,7 +29,7 @@ julia> module WorldAgeProblemRaisedHere!
 ERROR: MethodError: no method matching (::getfield(Main.WorldAgeProblemRaisedHere!, Symbol("##1#2")))(::Int64)
 The applicable method may be too new: running in world age 26095, while current world is 26096.
 
-julia> module WorldAgeProblemRaisedHere!
+julia> module WorldAgeProblemSolvedHere!
            using GeneralizedGenerated
            do_this!(one_ary_fn_ast::Expr, arg) = begin
                runtime_eval(one_ary_fn_ast)(arg)
@@ -37,9 +37,8 @@ julia> module WorldAgeProblemRaisedHere!
            res = do_this!(:(x -> x + 1), 2)
            @info res
        end
-WARNING: replacing module WorldAgeProblemRaisedHere!.
 [ Info: 3
-Main.WorldAgeProblemRaisedHere!
+Main.WorldAgeProblemSolvedHere!
 ```
 
 ## Support Closures in Generated Functions
