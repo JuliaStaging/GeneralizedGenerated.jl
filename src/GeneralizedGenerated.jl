@@ -8,7 +8,7 @@ List = LinkedList
 
 export gg, @gg, top_level_closure_conv, expr2typelevel, interpret
 export RuntimeFn, mk_function
-export to_type, to_typelist, types_to_typelist, from_type
+export to_type, to_typelist, types_to_typelist, from_type, runtime_eval
 
 include("utils.jl")
 include("typeable.jl")
@@ -35,6 +35,15 @@ end
 
 function mk_function(args, kwargs, body)
     mk_function(@__MODULE__, args, kwargs, body)
+end
+
+function runtime_eval(mod::Module, ex)
+    fn_ast = :(function () $ex end)
+    mk_function(mod, fn_ast)()
+end
+
+function runtime_eval(ex)
+    runtime_eval(@__MODULE__, ex)
 end
 
 end # module
