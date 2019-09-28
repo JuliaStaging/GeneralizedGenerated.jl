@@ -3,6 +3,17 @@ struct Unset end
 
 @implement Typeable{RuntimeFn{Args, Kwargs, Body}} where {Args, Kwargs, Body}
 
+Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body}) where {Args, Kwargs, Body} = begin
+        args = interpret(Args)
+        kwargs = interpret(Kwargs)
+        args = join(args, ", ")
+        kwargs = join(kwargs, ", ")
+        body = interpret(Body) |> rmlines
+        repr = "($args;$kwargs) -> $body"
+        print(io, repr)
+end
+
+
 
 struct Argument
     name    :: Symbol
@@ -13,6 +24,16 @@ end
 struct Arguments
     args   :: Vector{Argument}
     kwargs :: Vector{Argument}
+end
+
+Base.show(io::IO, arg::Argument) = begin
+    print(io, arg.name)
+    if arg.type !== nothing
+        print(io, "::", arg.type)
+    end
+    if arg.default !== Unset()
+        print(io, "=", arg.default)
+    end
 end
 
 @implement Typeable{Unset}

@@ -140,6 +140,8 @@ end
 
 end
 
+@testset "runtime eval" begin
+
 a = to_type(:(1 + 2))
 @test :(1 + 2) == from_type(a)
 @test string(a) == string(:(1 + 2))
@@ -159,6 +161,21 @@ end)
     x -> x + 1
 end)(1) == 2
 
+end
+
+@testset "self recursive" begin
+    to_test = quote
+        g(x, r=0) = x === 0 ? r : begin
+            g = g # required for self recur
+            g(x-1, r + x)
+        end
+        g(10)
+    end |> runtime_eval
+
+    g(x, r=0) = x === 0 ? r : g(x-1, r + x)
+    expected = g(10)
+    @test expected == to_test
+end
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)
