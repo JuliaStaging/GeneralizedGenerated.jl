@@ -158,7 +158,6 @@ function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
                 fn = $top_level_closure_conv($mod, fn),
                 (_, _, Body) = $destruct_rt_fn(fn)
                 ex = from_type(Body)
-                show(ex)
                 ex
             end
         end
