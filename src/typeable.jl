@@ -145,3 +145,13 @@ end
         _modules[V]
     end
 end
+
+@implement Typeable{GlobalRef} begin
+    function to_type(x::GlobalRef)
+        TVal{GlobalRef, to_type((x.mod, x.name))}
+    end
+    function from_type(::Type{TVal{GlobalRef, V}}) where V
+        mod, v = from_type(V)
+        GlobalRef(mod, v)
+    end
+end

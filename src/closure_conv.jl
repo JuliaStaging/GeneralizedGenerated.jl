@@ -147,13 +147,12 @@ function destruct_rt_fn(expr::Expr)
 end
 
 function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
-    ex = macroexpand(mod, ex)
     @when Expr(hd, func_sig, body) = ex begin
         # a fake function to get all arguments of the generated function
         quote_hd = QuoteNode(hd)
         quote_sig = QuoteNode(deepcopy(func_sig))
         body = quote
-            let ast = $body,
+            let ast = $macroexpand($mod, $body),
                 fake_ast = $Expr($quote_hd, $quote_sig, ast), # to support generator's arguments as closures
                 fn :: $ScopedFunc = $solve(fake_ast),
                 fn = $top_level_closure_conv($mod, fn),
@@ -169,5 +168,6 @@ function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
 end
 
 macro gg(ex)
-    gg(__module__, __source__, ex) |> esc
+    ex = gg(__module__, __source__, ex)
+    esc(ex)
 end

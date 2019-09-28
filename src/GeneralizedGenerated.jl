@@ -22,6 +22,7 @@ function mk_function(ex)
 end
 
 function mk_function(mod::Module, ex)
+    ex = macroexpand(mod, ex)
     fn = top_level_closure_conv(mod, solve(ex))
     if !(fn isa RuntimeFn)
         error("Expect a function expression")
