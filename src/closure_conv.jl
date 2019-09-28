@@ -157,7 +157,9 @@ function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
                 fn :: $ScopedFunc = $solve(fake_ast),
                 fn = $top_level_closure_conv($mod, fn),
                 (_, _, Body) = $destruct_rt_fn(fn)
-                from_type(Body)
+                ex = from_type(Body)
+                show(ex)
+                ex
             end
         end
         generator = Expr(hd, func_sig, body)
