@@ -191,6 +191,25 @@ end
     @test expected == to_test
 end
 
+
+@testset "support where clauses and return type annotations for @gg" begin
+    @gg function foo(x::T) where T
+        :(x, T)
+    end
+    @test foo(1) == (1, Int)
+    @gg function bar(x::T) where T
+        quote
+            g = x + 20
+            x = 10
+            () -> begin
+                x = g
+                x
+            end
+        end
+    end
+    @test bar(2)() == 2 + 20
+end
+
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)

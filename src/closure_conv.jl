@@ -99,7 +99,7 @@ function top_level_closure_conv(def_module::Module, ex)
             fn = RuntimeFn{Args, Kwargs, to_type(body)}()
             if !isempty(freesyms)
                 tp = Expr(:tuple, freesyms...)
-                fn = :(let _free = $tp; $Closure{$fn, $typeof($tp)}(_free) end)
+                fn = :(let _free = $tp; $Closure{$fn, $typeof(_free)}(_free) end)
             end
             if check_fun_mut[] !== nothing
                 sym = check_fun_mut[] |> closure_conv
@@ -153,10 +153,16 @@ function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
         quote_sig = QuoteNode(deepcopy(func_sig))
         body = quote
             let ast = $macroexpand($mod, $body),
-                fake_ast = $Expr($quote_hd, $quote_sig, ast), # to support generator's arguments as closures
-                fn :: $ScopedFunc = $solve(fake_ast),
-                fn = $top_level_closure_conv($mod, fn),
+# get all arguments of the generated functions
+                fake_ast_for_args = $Expr($quote_hd, $quote_sig, $Expr(:block)),
+                fn_for_args :: $ScopedFunc = $solve(fake_ast_for_args),
+                args = [keys(fn_for_args.scope.bounds)...],
+# generate a fake function and extract out its function body
+                fake_ast_for_fn_body = $Expr($quote_hd, Expr(:tuple, args...), ast), # to support generator's arguments as closures
+                fn_for_fn_body :: $ScopedFunc = $solve(fake_ast_for_fn_body),
+                fn = $top_level_closure_conv($mod, fn_for_fn_body),
                 (_, _, Body) = $destruct_rt_fn(fn)
+# return the real function body
                 ex = from_type(Body)
                 ex
             end
