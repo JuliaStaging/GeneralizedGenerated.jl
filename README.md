@@ -101,6 +101,35 @@ f()
 # => 10
 ```
 
+The function created by `mk_function` always has the signature `f(args…; kwargs…) = ...` if you need to use the function in a context where it will be passed multiple arguments, use the following pattern
+
+```julia
+f = mk_function(:((x, y) -> x + y))
+
+function F(g, pairs)
+  map(pairs) do (x,y)
+    g(x,y)
+  end
+end
+
+pairs = zip(1:10,2:11)
+F((x,y)->f(x,y), pairs)
+#=
+=>
+10-element Array{Int64,1}:
+  3
+  5
+  7
+  9
+ 11
+ 13
+ 15
+ 17
+ 19
+ 21
+=#
+```
+
 Tips
 ==============
 
