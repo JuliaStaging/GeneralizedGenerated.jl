@@ -22,8 +22,19 @@ function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
     Fn(args...) :: Ret
 end
 
-Base.show(io::IO, t::Type{TypeLevel{T}}) where T = print(io, "TypeLevel{$T}")
-Base.show(io::IO, t::Type{<:TypeLevel{T}}) where T = show_repr(io, t)
+Base.show(io::IO, t::Type{<:TypeLevel}) = show_t(io, t)
+show_t(io::IO, t) = begin
+    @match t begin
+        ::Type{TypeLevel{L}} where L => print(io, "TypeLevel{",  L, "}")
+        ::Type{TypeLevel} => print(io, "TypeLevel")
+         _ => begin
+            print(io, "TypeEncoding(")
+            show_repr(io, t)
+            print(io, ")")
+         end
+    end
+end
+
 
 @trait Typeable{T} begin
     to_type    :: T => Type{<:TypeLevel{T}}
@@ -115,7 +126,7 @@ end
         TVal{String, wrapped}
     end
     function from_type(::Type{TVal{String, V}}) where V
-        string(V)
+        string(from_type(V))
     end
 end
 

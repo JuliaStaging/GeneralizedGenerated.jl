@@ -144,7 +144,7 @@ end
 
 a = to_type(:(1 + 2))
 @test :(1 + 2) == from_type(a)
-@test string(a) == string(:(1 + 2))
+@test string(from_type(a)) == string(:(1 + 2))
 
 
 @test runtime_eval(1) == 1
