@@ -6,14 +6,10 @@ using CanonicalTraits
 using DataStructures
 List = LinkedList
 
-export gg, @gg, top_level_closure_conv, expr2typelevel, interpret
-export RuntimeFn, mk_function
+export NGG
+export gg, @gg, closure_conv, interpret
+export RuntimeFn, mk_function, mkngg
 export to_type, to_typelist, types_to_typelist, from_type, runtime_eval
-
-include("utils.jl")
-include("typeable.jl")
-include("runtime_funcs.jl")
-include("closure.jl")
 include("closure_conv.jl")
 
 
@@ -23,7 +19,7 @@ end
 
 function mk_function(mod::Module, ex)
     ex = macroexpand(mod, ex)
-    fn = top_level_closure_conv(mod, solve(ex))
+    fn = closure_conv(mod, solve(ex))
     if !(fn isa RuntimeFn)
         error("Expect a function expression")
     end

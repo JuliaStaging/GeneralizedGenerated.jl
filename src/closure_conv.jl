@@ -1,180 +1,137 @@
-# This file implements closure conversions.
+using JuliaVariables
+using MLStyle
+include("ngg/ngg.jl")
+include("lens.jl")
+include("closure.jl")
+using .NGG
+include("func_arg_decs.jl")
 
-function top_level_closure_conv(def_module::Module, ex)
-
-    function build_argument(arg) :: Argument
-        @when Expr(:kw, _...) = arg begin
-            arg.head = :(=)
-        end
-        default = Unset()
-        @when :($a = $b) = arg begin
-            default = closure_conv(b)
-            arg = a
-        end
-        type = nothing
-        @when :($a :: $b) = arg begin
-            arg = a
-            type = closure_conv(b)
-        @when :(:: $b) = arg
-            arg = :_
-            type = closure_conv(b)
-        end
-
-        @when ::ScopedVar = arg begin
-            arg = arg.sym
-
-        @when ::Symbol = arg
-            nothing
-        @otherwise
-            error("not supported argument name $arg.")
-        end
-
-        Argument(arg, type, default)
-    end
-
-    function build_arguments(args, kwargs)
-        Arguments(map(build_argument, args), map(build_argument, kwargs))
-    end
-
-    """
-    also canonicalize the arguments
-    """
-    inject_freesyms_as_arg!(freesyms::Vector{Symbol}, call, ref::Ref{Union{Nothing, ScopedVar}}) =
-        @when :($f($(args...))) = call begin
-            (args, kwargs) = split_args_kwargs(args)
-            ref.x = f
-            build_arguments([freesyms..., args...], kwargs)
-
-        @when Expr(:tuple, args...) = call
-            (args, kwargs) = split_args_kwargs(args)
-            build_arguments([freesyms..., args...], kwargs)
-
-
-        @when f :: Union{Symbol, ScopedVar} = call
-            build_arguments([freesyms..., f], [])
-
-        @when :($f :: $t) = call
-            error("'annotation' not implemented")
-        #     f = inject_freesyms_as_arg!(freesyms, f, ref)
-        #     :($f :: $t)
-
-        @when :($f where {$(ts...)}) = call
-            error("'where' not implemented")
-        #     f = inject_freesyms_as_arg!(freesyms, f, ref)
-        #     :($f where {$(ts...)})
-
-        @otherwise
-            error("Malformed function signature $call.")
-
-        end
-
-    function process_mutable_cells!(argnames :: Vector{Symbol}, bounds::Vector{LocalVar}, body)
-        # mutable free variables stored in Core.Box
-        stmts = Expr[]
-        for bound in bounds
-            if bound.is_mutable[] && bound.is_shared[]
-                sym = bound.sym
-                if sym in argnames
-                    push!(stmts, :($sym = $Core.Box($sym)))
-                else
-                    push!(stmts, :($sym = $Core.Box()))
+function closure_conv(top::Module, ex::Any)
+    function conv(ex::Expr)
+        @when Expr(:scoped, scope, inner) = ex begin
+            block = Any[]
+            for var in scope.bounds
+                if var.is_mutable && var.is_shared
+                    name = var.name
+                    if var.name in scope.bound_inits
+                        push!(block, :($name = Core.Box($name)))
+                    else
+                        push!(block, :($name = Core.Box()))
+                    end
                 end
             end
-        end
-        Expr(:let, Expr(:block, stmts...), body)
-    end
+            push!(block, conv(inner))
+            Expr(:block, block...)
+        @when Expr(:function, head, inner&&Expr(:scoped, scope, _)) = ex
+            freenames = Symbol[f.name for f in scope.freevars]
+            head = conv(head)
+            fh = func_header(head)
+            fh = @with fh.args = FuncArg[map(func_arg, freenames)..., fh.args...]
 
-    function closure_conv(ex::ScopedFunc)
-        scope  = ex.scope
-        frees  = LocalVar[values(scope.freevars)...]
-        bounds = LocalVar[values(scope.bounds)...]
-        freesyms = Symbol[x.sym for x in frees]
-        @when Expr(hd, sig, body) = ex.func begin
-            check_fun_mut = Ref{Union{Nothing, ScopedVar}}(nothing)
-            sig = inject_freesyms_as_arg!(freesyms, sig, check_fun_mut)
-            argnames = Symbol[[arg.name for arg in sig.args];[arg.name for arg in sig.kwargs]]
-            body = process_mutable_cells!(argnames, bounds, closure_conv(body))
-            Args = to_typelist(sig.args)
-            Kwargs = to_typelist(sig.kwargs)
-            fn = RuntimeFn{Args, Kwargs, to_type(body)}()
-            if !isempty(freesyms)
-                tp = Expr(:tuple, freesyms...)
-                fn = :(let _free = $tp; $Closure{$fn, $typeof(_free)}(_free) end)
+            if fh.fresh !== unset || fh.ret !== unset
+                error("GG doesn't support type parameters or return type annotations.")
             end
-            if check_fun_mut[] !== nothing
-                sym = check_fun_mut[] |> closure_conv
-                fn = :($sym = $fn)
+
+            args = of_args(fh.args)
+            kwargs = of_args(fh.kwargs)
+            inner = conv(inner)
+            name = fh.name === unset ? Symbol(:function) : fh.name
+            fn = mkngg(Symbol(name), args, kwargs, inner)
+            if isempty(freenames)
+                fn
+            else
+                closure_vars = Expr(:tuple, freenames...)
+                quote
+                    let freevars = $closure_vars
+                        $Closure{$fn, Base.typeof(freevars)}(freevars)
+                    end
+                end
             end
-            fn
-        @otherwise
-            error("impossible")
+        @when Expr(hd, args...) = ex
+            Expr(hd, map(conv, args)...)
         end
     end
 
-    function closure_conv(ex::ScopedGenerator)
-        error("Not implemented")
-    end
-
-    function closure_conv(ex::ScopedVar)
-        var = ex.scope[ex.sym]
-        var isa GlobalVar && return :($def_module.$var)
-        if var.is_shared[] && var.is_mutable[]
-            return :($(var.sym).contents)
+    function conv(s::Var)
+        name = s.name
+        s.is_global && return :($top.$name)
+        s.is_mutable && s.is_shared && return begin
+            :($name.contents)
         end
-        return var.sym
+        name
     end
+    conv(s) = s
 
-    function closure_conv(ex)
-        @match ex begin
-            Expr(hd, args...) => Expr(hd, map(closure_conv, args)...)
-            a => a
-        end
-    end
-
-    closure_conv(ex)
+    ex = solve(ex)
+    conv(ex.args[2])
 end
 
-function destruct_rt_fn(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
-    (Args, Kwargs, Body)
+function _get_body(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
+    Body
 end
 
-function destruct_rt_fn(expr::Expr)
-    @when :($lhs = $rhs) = expr begin
-        destruct_rt_fn(rhs)
-    @otherwise
-        error("Malformed input $expr")
+function gg(compmod::Module, runmod::Module, source::Union{Nothing, LineNumberNode}, ex)
+    (head, body) = @match ex begin
+        Expr(:(=), head, body) => (head, body)
+        Expr(:function, head, body) => (head, body)
+        Expr(:->, head, body) => (head, body)
+        _ => error("Malformed generated function at $source.")
     end
-end
-
-function gg(mod::Module, source::Union{Nothing, LineNumberNode}, ex)
-    @when Expr(hd, func_sig, body) = ex begin
-        # a fake function to get all arguments of the generated function
-        quote_hd = QuoteNode(hd)
-        quote_sig = QuoteNode(deepcopy(func_sig))
-        body = quote
-            let ast = $macroexpand($mod, $body),
-# get all arguments of the generated functions
-                fake_ast_for_args = $Expr($quote_hd, $quote_sig, $Expr(:block)),
-                fn_for_args :: $ScopedFunc = $solve(fake_ast_for_args),
-                args = [keys(fn_for_args.scope.bounds)...],
-# generate a fake function and extract out its function body
-                fake_ast_for_fn_body = $Expr($quote_hd, Expr(:tuple, args...), ast), # to support generator's arguments as closures
-                fn_for_fn_body :: $ScopedFunc = $solve(fake_ast_for_fn_body),
-                fn = $top_level_closure_conv($mod, fn_for_fn_body),
-                (_, _, Body) = $destruct_rt_fn(fn)
-# return the real function body
-                ex = from_type(Body)
-                ex
-            end
+    fh = func_header(head)
+    locals = Any[]
+    if fh.args !== unset
+        for arg in fh.args
+            push!(locals, arg.name)
         end
-        generator = Expr(hd, func_sig, body)
-        Expr(:macrocall, Symbol("@generated"), source, generator)
-    @otherwise
-        error("Malformed generated function at $source.")
     end
+    if fh.kwargs !== unset
+        for arg in fh.kwargs
+            push!(locals, arg.name)
+        end
+    end
+    if fh.fresh !== unset
+        for name in map(extract_tvar, fh.fresh)
+            push!(locals, name)
+        end
+    end
+    pseudo_head = fh.name !== unset ? Expr(:call, fh.name, locals...) :
+        Expr(:tuple, locals...)
+
+    genbody = quote
+        let ast = Base.macroexpand($compmod, $body),
+            fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast),
+            fake_fn = $closure_conv($runmod, fake_ast)
+            $from_type($_get_body(fake_fn))
+        end
+    end
+
+    generator = Expr(:function, head, genbody)
+    Expr(:macrocall, Symbol("@generated"), source, generator)
+end
+
+macro gg(ex, modname)
+    ex = gg(__module__, modname, __source__, ex)
+    esc(ex)
 end
 
 macro gg(ex)
-    ex = gg(__module__, __source__, ex)
+    ex = gg(__module__, __module__, __source__, ex)
     esc(ex)
 end
+
+fn = closure_conv(Main, :(function f(x)
+    function ()
+        x + 2
+    end
+end))
+
+
+ @gg function gn(x)
+    quote
+        function ()
+            x * 2
+        end
+    end
+end
+
+println(fn(1)(), " ", gn(1)())
