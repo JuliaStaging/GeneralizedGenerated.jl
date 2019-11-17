@@ -8,7 +8,7 @@ include("func_arg_decs.jl")
 
 """`ex` should be a scoped expression
 """
-function closure_conv(top::Module, ex::Any)
+function closure_conv(top::Any, ex::Any)
     function conv(ex::Expr)
         @when Expr(:scoped, scope, inner) = ex begin
             block = Any[]
@@ -76,7 +76,7 @@ function _get_body(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
     Body
 end
 
-function gg(compmod::Module, runmod::Module, source::Union{Nothing, LineNumberNode}, ex)
+function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}, ex)
     (head, body) = @match ex begin
         Expr(:(=), head, body) => (head, body)
         Expr(:function, head, body) => (head, body)
@@ -110,7 +110,7 @@ function gg(compmod::Module, runmod::Module, source::Union{Nothing, LineNumberNo
             fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast),
             fake_ast = $simplify_ex(fake_ast),
             fake_ast = $solve(fake_ast),
-            fake_fn = $closure_conv($runmod, fake_ast)
+            fake_fn = $closure_conv($(QuoteNode(runmod)), fake_ast)
             $from_type($_get_body(fake_fn))
         end
     end
@@ -119,7 +119,7 @@ function gg(compmod::Module, runmod::Module, source::Union{Nothing, LineNumberNo
     Expr(:macrocall, Symbol("@generated"), source, generator)
 end
 
-macro gg(ex, modname)
+macro gg(modname, ex)
     ex = gg(__module__, modname, __source__, ex)
     esc(ex)
 end
