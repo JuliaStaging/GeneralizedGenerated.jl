@@ -30,13 +30,3 @@ end
 macro with(ex)
     with(ex) |> esc
 end
-
-function with(ex)
-    cache = gensym("cache")
-    value = gensym("value")
-    lens_compile(ex, cache, value)
-end
-
-macro with(ex)
-    with(ex) |> esc
-end

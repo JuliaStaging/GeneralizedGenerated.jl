@@ -6,6 +6,8 @@ include("closure.jl")
 using .NGG
 include("func_arg_decs.jl")
 
+"""`ex` should be a scoped expression
+"""
 function closure_conv(top::Module, ex::Any)
     function conv(ex::Expr)
         @when Expr(:scoped, scope, inner) = ex begin
@@ -26,6 +28,8 @@ function closure_conv(top::Module, ex::Any)
             freenames = Symbol[f.name for f in scope.freevars]
             head = conv(head)
             fh = func_header(head)
+            lambda_n = Symbol(:function)
+            name = fh.name === unset ? lambda_n : fh.name
             fh = @with fh.args = FuncArg[map(func_arg, freenames)..., fh.args...]
 
             if fh.fresh !== unset || fh.ret !== unset
@@ -35,18 +39,21 @@ function closure_conv(top::Module, ex::Any)
             args = of_args(fh.args)
             kwargs = of_args(fh.kwargs)
             inner = conv(inner)
-            name = fh.name === unset ? Symbol(:function) : fh.name
+
             fn = mkngg(Symbol(name), args, kwargs, inner)
-            if isempty(freenames)
-                fn
-            else
+            if !isempty(freenames)
                 closure_vars = Expr(:tuple, freenames...)
-                quote
+                fn = quote
                     let freevars = $closure_vars
                         $Closure{$fn, Base.typeof(freevars)}(freevars)
                     end
                 end
             end
+
+            if name !== lambda_n
+                fn = Expr(:block, :($(fh.name) = $fn))
+            end
+            fn
         @when Expr(hd, args...) = ex
             Expr(hd, map(conv, args)...)
         end
@@ -62,7 +69,6 @@ function closure_conv(top::Module, ex::Any)
     end
     conv(s) = s
 
-    ex = solve(ex)
     conv(ex.args[2])
 end
 
@@ -94,12 +100,16 @@ function gg(compmod::Module, runmod::Module, source::Union{Nothing, LineNumberNo
             push!(locals, name)
         end
     end
-    pseudo_head = fh.name !== unset ? Expr(:call, fh.name, locals...) :
-        Expr(:tuple, locals...)
+    if fh.name !== unset
+        push!(locals, fh.name)
+    end
+    pseudo_head = Expr(:tuple, locals...)
 
     genbody = quote
         let ast = Base.macroexpand($compmod, $body),
             fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast),
+            fake_ast = $simplify_ex(fake_ast),
+            fake_ast = $solve(fake_ast),
             fake_fn = $closure_conv($runmod, fake_ast)
             $from_type($_get_body(fake_fn))
         end
@@ -118,20 +128,3 @@ macro gg(ex)
     ex = gg(__module__, __module__, __source__, ex)
     esc(ex)
 end
-
-fn = closure_conv(Main, :(function f(x)
-    function ()
-        x + 2
-    end
-end))
-
-
- @gg function gn(x)
-    quote
-        function ()
-            x * 2
-        end
-    end
-end
-
-println(fn(1)(), " ", gn(1)())
