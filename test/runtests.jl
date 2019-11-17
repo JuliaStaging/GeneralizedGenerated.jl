@@ -5,13 +5,7 @@ using BenchmarkTools
 using DataStructures
 
 
-rmlines(ex::Expr) = begin
-    hd = ex.head
-    tl = map(rmlines, filter(!islinenumbernode, ex.args))
-    Expr(hd, tl...)
-end
-rmlines(a) = a
-islinenumbernode(x) = x isa LineNumberNode
+rmlines = NGG.rmlines
 
 @testset "no kwargs" begin
 
