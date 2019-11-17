@@ -8,11 +8,13 @@ CanonicalTraits = "a603d957-0e48-4f86-8fbd-0b7bc66df689"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 JuliaVariables = "b14d175d-62b4-44ba-8fb7-3064adc8c3ec"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
-NameResolution = "71a1bf82-56d0-4bbc-8a3c-48b961074391"
 
 [compat]
-julia = "1"
+CanonicalTraits = "^0.1"
+DataStructures = "^0.17"
 JuliaVariables = "^0.2"
+MLStyle = "^0.3.1"
+julia = "1"
 
 [extras]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
