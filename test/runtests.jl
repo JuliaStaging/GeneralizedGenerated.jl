@@ -210,6 +210,41 @@ end
     @test bar(2)() == 2 + 20
 end
 
+@testset "support default arguments" begin
+    @gg function h(x, c)
+        quote
+            d = x + 10
+            function g(x, y=c)
+                x + y + d
+            end
+        end
+    end
+    @test h(1, 2)(3) == 16
+end
+
+module S
+    run(y) = y + 1
+end
+
+@testset "specifying evaluation modules" begin
+    @gg m function g(m::Module, y) :(run(y)) end
+    @test g(S, 1) == 2
+end
+
+@testset "specifying evaluation modules" begin
+    @gg function test_free_of_let()
+        quote
+            let x = 1
+                f = () -> begin
+                    x * 3
+                end
+                x = 2
+                f
+            end
+        end
+    end
+    @test test_free_of_let()() == 6
+end
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)
