@@ -12,7 +12,7 @@ rmlines = NGG.rmlines
 @gg function f1(a)
     quote
         x -> a + x
-    end
+    end |> rmlines
 end
 
 @test f1(1)(2) == 3
@@ -23,7 +23,7 @@ end
             a += 2
             x + a
         end
-    end
+    end |> rmlines
 end
 
 @test f2(1)(2) == 5
@@ -202,6 +202,18 @@ end
         end
     end
     @test bar(2)() == 2 + 20
+
+    @gg function foobar(x::T, y::A) where {T <: Number, A <: AbstractArray{T}}
+        quote
+            g = x + 20
+            x = 10
+            () -> begin
+                x = g
+                (A, x + y[1])
+            end
+        end
+    end
+    @test foobar(2, [3])() == (Vector{Int}, 2 + 20 + 3)
 end
 
 @testset "support default arguments" begin
@@ -254,6 +266,16 @@ end
     end
     @test test_free_of_let()() == 6
 end
+
+@testset "show something" begin
+    f1 = mk_function(:(x -> x + 1))
+    f2 = mk_function(:((x :: Int = 2, ) -> x + 1))
+    @test f1(1) == 2
+    @test f2() == 3
+    println(f1)
+    println(f2)
+end
+
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)

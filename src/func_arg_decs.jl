@@ -22,6 +22,7 @@ function func_arg(@nospecialize(ex))::FuncArg
     @match ex begin
         :($var :: $ty) => @with func_arg(var).type = ty
         Expr(:kw, var, default) => @with func_arg(var).default = default
+        Expr(:(=), var, default) => @with func_arg(var).default = default
         var => FuncArg(var, unset, unset)
     end
 end
@@ -46,34 +47,6 @@ function func_header(@nospecialize(ex))::FuncHeader
 
         f => @with FuncHeader().name = f
     end
-end
-
-function to_exp(fh::FuncHeader)
-    args = Any[]
-    flag = if fh.name !== unset
-        push!(args, fh.name)
-        :call
-    else
-        :tuple
-    end
-    if fh.kwargs !== unset
-        push!(args, Expr(:parameters, map(to_exp, fh.kwargs)...))
-    end
-    if fh.args !== unset
-        append!(args, map(to_exp, fh.args))
-    end
-    exp = Expr(flag, args...)
-    exp = fh.ret === unset ? exp : Expr(:(::), exp, fh.ret)
-    exp = fh.fresh === unset ? exp : Expr(:where, exp, fh.fresh...)
-    exp
-end
-
-function to_exp(fa::FuncArg)
-    base =
-        fa.name == unset ? :(:: $(fa.type)) :
-        fa.type != unset ? :($(fa.name) :: $(fa.type)) : fa.name
-    base = fa.default === unset ? base : Expr(:kw, base, fa.default)
-    base
 end
 
 function of_args(::Unset)
