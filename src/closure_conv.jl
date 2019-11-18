@@ -25,7 +25,13 @@ function closure_conv(top::Any, ex::Any)
             push!(block, conv(inner))
             Expr(:block, block...)
         @when Expr(:function, head, inner&&Expr(:scoped, scope, _)) = ex
+
             freenames = Symbol[f.name for f in scope.freevars]
+            # If the evaluation module is a symbol and not in arguments
+            if top isa Symbol && all(scope.bounds) do e; e.name !== top end
+                push!(freenames, top)
+            end
+
             head = conv(head)
             fh = func_header(head)
             lambda_n = Symbol(:function)
@@ -76,6 +82,10 @@ function _get_body(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
     Body
 end
 
+function _get_body(ex)
+    error(ex)
+end
+
 function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}, ex)
     (head, body) = @match ex begin
         Expr(:(=), head, body) => (head, body)
@@ -83,6 +93,7 @@ function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}
         Expr(:->, head, body) => (head, body)
         _ => error("Malformed generated function at $source.")
     end
+
     fh = func_header(head)
     locals = Any[]
     if fh.args !== unset
@@ -103,6 +114,7 @@ function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}
     if fh.name !== unset
         push!(locals, fh.name)
     end
+
     pseudo_head = Expr(:tuple, locals...)
 
     genbody = quote

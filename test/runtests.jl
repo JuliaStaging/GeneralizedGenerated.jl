@@ -220,12 +220,27 @@ module S
     run(y) = y + 1
 end
 
+struct K
+    f1::Function
+    f2::Function
+end
 @testset "specifying evaluation modules" begin
     @gg m function g(m::Module, y) :(run(y)) end
     @test g(S, 1) == 2
+
+    @gg m function h(m, y)
+        quote
+        c = m.f1(y)
+        () -> begin c = m.f2(c) end
+        end
+    end
+    k = K(x -> x + 1, x -> x * 9)
+    next = h(k, 1)
+    @test next() == 18
+    @test next() == 18 * 9
 end
 
-@testset "specifying evaluation modules" begin
+@testset "test free variables of let bindings" begin
     @gg function test_free_of_let()
         quote
             let x = 1
