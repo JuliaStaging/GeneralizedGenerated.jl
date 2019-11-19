@@ -5,20 +5,14 @@ using BenchmarkTools
 using DataStructures
 
 
-rmlines(ex::Expr) = begin
-    hd = ex.head
-    tl = map(rmlines, filter(!islinenumbernode, ex.args))
-    Expr(hd, tl...)
-end
-rmlines(a) = a
-islinenumbernode(x) = x isa LineNumberNode
+rmlines = NGG.rmlines
 
 @testset "no kwargs" begin
 
 @gg function f1(a)
     quote
         x -> a + x
-    end
+    end |> rmlines
 end
 
 @test f1(1)(2) == 3
@@ -29,7 +23,7 @@ end
             a += 2
             x + a
         end
-    end
+    end |> rmlines
 end
 
 @test f2(1)(2) == 5
@@ -208,6 +202,78 @@ end
         end
     end
     @test bar(2)() == 2 + 20
+
+    @gg function foobar(x::T, y::A) where {T <: Number, A <: AbstractArray{T}}
+        quote
+            g = x + 20
+            x = 10
+            () -> begin
+                x = g
+                (A, x + y[1])
+            end
+        end
+    end
+    @test foobar(2, [3])() == (Vector{Int}, 2 + 20 + 3)
+end
+
+@testset "support default arguments" begin
+    @gg function h(x, c)
+        quote
+            d = x + 10
+            function g(x, y=c)
+                x + y + d
+            end
+        end
+    end
+    @test h(1, 2)(3) == 16
+end
+
+module S
+    run(y) = y + 1
+end
+
+struct K
+    f1::Function
+    f2::Function
+end
+@testset "specifying evaluation modules" begin
+    @gg m function g(m::Module, y) :(run(y)) end
+    @test g(S, 1) == 2
+
+    @gg m function h(m, y)
+        quote
+        c = m.f1(y)
+        () -> begin c = m.f2(c) end
+        end
+    end
+    k = K(x -> x + 1, x -> x * 9)
+    next = h(k, 1)
+    @test next() == 18
+    @test next() == 18 * 9
+end
+
+@testset "test free variables of let bindings" begin
+    @gg function test_free_of_let()
+        quote
+            let x = 1
+                f = () -> begin
+                    x * 3
+                end
+                x = 2
+                f
+            end
+        end
+    end
+    @test test_free_of_let()() == 6
+end
+
+@testset "show something" begin
+    f1 = mk_function(:(x -> x + 1))
+    f2 = mk_function(:((x :: Int = 2, ) -> x + 1))
+    @test f1(1) == 2
+    @test f2() == 3
+    println(f1)
+    println(f2)
 end
 
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737

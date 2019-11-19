@@ -54,28 +54,54 @@ end
 
 f(1)(2) # => 3
 
-```
-
-P.S: We can figure out a pure Julia way to resolve symbols, thus free variables and
-other stuffs can be resolved automatically.
-
-Note there're some restrictions to the closures of generated functions yet:
-
-- Multiple dispatch is not allowed, and `f(x) = ...` is equivalent to `f = x -> ...`.
-- Comprehensions for generated functions are not implemented yet.
-- Default arguments doesn't work unless they're constants. You can just splice variables into the AST to achieve the same   functionlity. The following code works.
-
-    ```julia
-    @gg function f(x)
-        k = 10
-        quote
-            d = k + 10
-            function g(x, y=$k)
-                x + y + d
-            end
+@gg function h(x, c)
+    quote
+        d = x + 10
+        function g(x, y=c)
+            x + y + d
         end
     end
-    ```
+end
+
+h(1, 2)(1) # => 14
+```
+
+Note there're some restrictions to the generalized generated functions yet:
+
+- Multiple dispatch is not allowed, and `f(x) = ...` is equivalent to `f = x -> ...`. This will never gets supported for it needs a thorough implementation of multuple dispatch in GG.
+- Comprehensions for generated functions are not implemented yet. It won't cost a long time for being supported.
+
+The evaluation module can be specified in this way:
+
+```julia
+julia> module S
+           run(y) = y + 1
+       end
+Main.S
+
+julia> @gg m function g(m::Module, y) :(run(y)) end
+# the global variable `run` is from the module `m`
+g (generic function with 1 method)
+
+julia> g(S, 1)
+2
+```
+
+Of course you can use structures to imitate modules:
+
+```julia
+julia> struct S
+           run :: Function
+       end
+Main.S
+
+julia> @gg m function g(m::S, y) :(run(y)) end
+# the global variable `run` is from the datum `m`
+g (generic function with 1 method)
+
+julia> g(S(x -> x + 1), 1)
+2
+```
 
 ## No `eval`/`invokelatest`!
 

@@ -1,29 +1,24 @@
-struct RuntimeFn{Args, Kwargs, Body} end
+# A generalized generated function implementation, but not that generalized.
+
+struct RuntimeFn{Args, Kwargs, Body, Name} end
 struct Unset end
 
-@implement Typeable{RuntimeFn{Args, Kwargs, Body}} where {Args, Kwargs, Body}
+@implement Typeable{RuntimeFn{Args, Kwargs, Body, Name}} where {Args, Kwargs, Body, Name}
 
-Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body}) where {Args, Kwargs, Body} = begin
+Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body, Name}) where {Args, Kwargs, Body, Name} = begin
         args = interpret(Args)
         kwargs = interpret(Kwargs)
-        args = join(args, ", ")
-        kwargs = join(kwargs, ", ")
+        args = join(map(string, args), ", ")
+        kwargs = join(map(string, kwargs), ", ")
         body = interpret(Body) |> rmlines
-        repr = "($args;$kwargs) -> $body"
+        repr = "$Name = ($args;$kwargs) -> $body"
         print(io, repr)
 end
-
-
 
 struct Argument
     name    :: Symbol
     type    :: Union{Nothing, Any}
     default :: Union{Unset,  Any}
-end
-
-struct Arguments
-    args   :: Vector{Argument}
-    kwargs :: Vector{Argument}
 end
 
 Base.show(io::IO, arg::Argument) = begin
@@ -39,7 +34,7 @@ end
 @implement Typeable{Unset}
 
 @implement Typeable{Argument} begin
-    to_type(arg) =
+    to_type(@nospecialize(arg)) =
         let f = Argument
             args = [arg.name, arg.type, arg.default] |> to_typelist
             TApp{Argument, f, args}

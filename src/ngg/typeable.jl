@@ -23,7 +23,7 @@ function interpret(t::Type{TApp{Ret, Fn, Args}}) where {Fn, Args, Ret}
 end
 
 Base.show(io::IO, t::Type{<:TypeLevel}) = show_t(io, t)
-show_t(io::IO, t) = begin
+show_t(io::IO, @nospecialize(t)) = begin
     @match t begin
         ::Type{TypeLevel{L}} where L => print(io, "TypeLevel{",  L, "}")
         ::Type{TypeLevel} => print(io, "TypeLevel")
@@ -38,35 +38,32 @@ end
 
 @trait Typeable{T} begin
     to_type    :: T => Type{<:TypeLevel{T}}
-    to_type(x) = TVal{T, x}
+    to_type(@nospecialize(x)) = TVal{T, x}
     from_type  :: Type{<:TypeLevel{T}} => T
-    from_type(t) = interpret(t)
+    from_type(@nospecialize(t)) = interpret(t)
 
     show_repr :: [IO, Type{<:TypeLevel{T}}] => Nothing
-    show_repr(io, t) = begin
+    show_repr(io::IO, @nospecialize(t)) = begin
         print(io, from_type(t))
     end
 end
 
-to_typelist(many) =
+to_typelist(@nospecialize(many)) =
     let T = eltype(many)
         foldr(many, init=TNil{T}) do each, prev
             TCons{T, to_type(each), prev}
         end
     end
 
-types_to_typelist(many) =
+types_to_typelist(@nospecialize(many)) =
     let T = eltype(many)
         foldr(many, init=TNil{T}) do each, prev
             TCons{T, each, prev}
         end
     end
 
-# compat
-expr2typelevel = to_type
-
 @implement Typeable{L} where {T, L <: List{T}} begin
-    to_type(x) = to_typelist(T[x...])
+    to_type(@nospecialize(x)) = to_typelist(T[x...])
 end
 
 @implement Typeable{Expr} begin
@@ -82,7 +79,7 @@ end
 end
 
 @implement Typeable{LineNumberNode} begin
-    function to_type(ln)
+    function to_type(@nospecialize(ln))
         f = LineNumberNode
         args = Any[ln.line, ln.file] |> to_typelist
         TApp{LineNumberNode, f, args}
@@ -90,7 +87,7 @@ end
 end
 
 @implement Typeable{QuoteNode} begin
-    function to_type(x)
+    function to_type(@nospecialize(x))
         f = QuoteNode
         args = [x.value] |> to_typelist
         TApp{QuoteNode, f, args}
@@ -98,7 +95,7 @@ end
 end
 
 @implement Typeable{Tp} where Tp <: Tuple  begin
-    function to_type(x)
+    function to_type(@nospecialize(x))
         args = collect(x) |> to_typelist
         TApp{Tp, tuple, args}
     end
@@ -107,7 +104,7 @@ end
 const named_tuple_maker(p...) = (;p...)
 
 @implement Typeable{NamedTuple{Ks, Ts}} where {Ks, Ts} begin
-    function to_type(x)
+    function to_type(@nospecialize(x))
         f = named_tuple_maker
         args = [kv for kv in zip(Ks, values(x))] |> to_typelist
         TApp{NamedTuple{Ks, Ts}, f, args}
