@@ -20,6 +20,7 @@ is_func_header(a::FuncHeader) = a.args != unset
 
 function func_arg(@nospecialize(ex))::FuncArg
     @match ex begin
+        :(:: $ty) => @with func_arg(gensym("_")).type = ty
         :($var :: $ty) => @with func_arg(var).type = ty
         Expr(:kw, var, default) => @with func_arg(var).default = default
         Expr(:(=), var, default) => @with func_arg(var).default = default

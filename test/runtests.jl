@@ -276,6 +276,11 @@ end
     println(f2)
 end
 
+@testset "omit func argname: #34" begin
+   f1 = mk_function(:( (:: Int) -> 0 ))
+   @test f1(1) == 0
+   @test_throws MethodError f1("")
+end
 # # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
 # @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
 #     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)
