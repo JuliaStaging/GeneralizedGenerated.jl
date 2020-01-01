@@ -4,7 +4,7 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/dev)
 [![Build Status](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl.svg?branch=master)](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl)
 [![Codecov](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3596233.svg)](https://doi.org/10.5281/zenodo.3596233)
 
 GeneralizedGenerated enables the generalised generated functions. More concretely,
 **supports defining closures in generated functions**.
