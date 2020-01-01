@@ -218,7 +218,7 @@ I have good experience with more than 30 programming languages, and this is some
 
 Generated functions are good, but its use didn't proliferate much, which is partially affected by the restrictions of generated functions.
 
-The restrictions lie in 2 aspects, compiler overhead and effectiveness restriction due to implementation.
+The restrictions lie in 2 aspects, compiler overhead and expressiveness restriction due to implementation.
 
 ### Compiler Overhead
 
@@ -284,7 +284,21 @@ data = rand(Float32, (2500, 2500))
 However, as it's not automatically made,
 it's not hard to imagine writing code in this way will be painful in some cases.
 
-### Effectiveness
+### Expressiveness
 
-Currently, the generated functions provided in Julia core is quite limited, and the most common case seen by users is, a generated function don't support nested functions.
+Currently, the generated functions provided in Julia core is quite limited, and the most common case seen by users is, a generated function, its generator cannot return the code containing nested functions, i.e., **we cannot generate functions by using generated functions**.
+
+```julia
+@generated f(x) = :(() -> 1)
+# f (generic function with 1 method)
+
+f(1)
+# ERROR: The function body AST defined by this @generated function
+# is not pure.
+# This likely means it contains a closure or comprehension.
+```
+
+The capability of generating functions is very important, and now,
+we're to introduce something that can only be made through runtime code generation.
+
 
