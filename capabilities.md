@@ -298,7 +298,214 @@ f(1)
 # This likely means it contains a closure or comprehension.
 ```
 
+What GeneralizedGenerated.jl did, is providing a mechanism to create functions from ASTs in runtime,
+and keeping away from performance loss when calling these runtime functions. Via this,
+we succeeded in ending the restrictions of returning closures in generated functions.
+
+```julia
+@gg f(x) = :(() -> 1 + x)
+g = f(1)
+```
+
 The capability of generating functions is very important, and now,
-we're to introduce something that can only be made through runtime code generation.
+we're to introduce something that can only be made through creating functions in runtime with ASTs.
+
+## The Problems in Modeling
+The good examples exist in working with modeling tasks, where we are always supposed to, create a domain specific language(DSL) to describe our models accurately.
+
+However, in Julia, using any DSL example concerning to real world problems is too long. These DSLs usually take more than 50 lines, although concise, but still too verbose as an examplar. After failing at coming up with an example both making sense in practice and short enough,
 
 
+<!-- 
+
+
+There're quite a lot of approaches for doing this, and to make our model executable,
+we always have to interpret our DSL.
+
+### DSL via Tagless Approach
+
+The first approach, is called a tagless approach, and the term `tagless` is from the academic research field of DSLs.
+
+It's the most concise way, and the reason why it's called `tagless` is, it requires no types for representing the DSL. The term `tag` in the field of Programming Languages can refer to data types, and you can think, a Julia `struct` is a `tag`.
+
+For readers who're not used to DSLs, or the terms used here, you can check out a concise example at [Minimal DSL For Terminal Plot In A Tagless Approach](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-tagless-approach.jl).
+
+The terminal plot language has the following grammar,
+```bnf
+action  : @forward <Julia Float64>
+        | @turn <Julia Float64>
+actions : <action>
+        | <actions> <action>
+start   : actions <EOF>
+```
+
+In the tagless approach, for statements like `@forward <float64>` or `@turn <float64>`,
+we don't have to create types but just some functions
+
+```julia
+function forward(...) ... end
+function turn(...) ... end
+```
+
+
+This is a simplest way to make DSLs, and writing the DSL or executing it look like the following code,
+
+```julia
+forward(0.5)
+turn(-π/4)
+forward(0.1)
+```
+
+The problem of tagless approach is, the programs of DSL cannot be easily introspected. Things are just functions, and performing analyses can be painful.
+
+Although there're still some techniques called Tagless Final, which makes the introspection and analyses possible, it's very appealing, but we'd better not talk much about some very advanced PL things here.
+
+### DSL via Tagful Approach
+
+To permit analyzers on your DSL in an "intuitive" or "non-specialist" way, we can making DSLs with the `tagful` approach.
+
+In fact, this is the majority way to encode DSLs, and in Julia community, packages doing modeling tasks are using this approach.
+
+As an examplar, we provide an `tagful` implementation  at [Minimal DSL For Terminal Plot In A Tagful Approach](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-tagful-approach.jl),
+and you can compare it with the `tagless` approach.
+
+
+`Tagful`, this term suggests the requirement of creating many data type instances for representing the programs of the DSL.
+
+For the terminal plot language, we need these types for modeling,
+
+```julia
+abstract type Statement end
+
+struct Forward <: Statement
+    distance::Float64
+end
+
+struct Turn <: Statement
+    angle::Float64
+end
+```
+
+The usage of the DSL will look like
+
+```julia
+program = [Forward(0.5), Turn(-π/4), Forward(0.1)]
+interpret_dsl(program)
+```
+
+In Julia community, there're quite a lot of packages using the tagful approach to do modeling tasks.
+
+There're many packages using their own modeling type, AFAIK, there're
+- [Yao.jl(Quantum Computing)](https://github.com/QuantumBFS/Yao.jl)
+- [Luxor.jl(GUI)](https://github.com/JuliaGraphics/Luxor.jl)
+- [Soss.jl(PPL)](https://github.com/cscherrer/Soss.jl)
+- etc.
+
+Specifically, in Julia, there's an `Expr` data type. This is already provided as a good data type to do tagful modeling.
+
+AFAIK, Packages using `Expr` for modeling include
+- [ModelingToolKit.jl](https://github.com/JuliaDiffEq/ModelingToolkit.jl)
+- [SymEngine.jl](https://github.com/symengine/SymEngine.jl)
+- etc.
+
+Actually, there're a bunch of examples existing in other communities, such as LLVM.
+
+### Model Interpretation Too Slow
+
+The development benefits a lot from the tagful approach of modeling, but performance issues get raised here.
+
+The types(`tag`s) used for encoding models, can sometimes be very high level and, need some intermediate process of computations to lower them into the representations for interpretation, which, actually, can bring about a heavy performance disaster.
+
+To illustrate, we still use the terminal plot language.
+
+Check out the for-loop at [this code](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-tagful-approach.jl#L63) for the DSL interpretation, the heavy burden of virtual calls cannot get eliminated when the array of statements becomes large.
+
+Besides, through interpretation, it's not only very difficult for us to write the implementation to specialize our code by using runtime information. Say, if there're a sequence of `Forward` or `Turn`, we can merge them into a single one.
+
+You can try to specialize [this code](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-high-order.jl#L73) by merging for the consecutive `Turn` and `Forward`. I'd say even for this simple DSL it's still so hard.
+
+Finally, even this simplest terminal plot language suffers from the too high level `tag`s(struct `Forward`, `Turn`), which is only used for representing the logic of interpretation/computation, but isn't the runtime representation during the actual execution.
+
+### Interpretation Gets Slower: Function Abstractions In DSL
+
+The performance issue of interpretation gets much severer when the DSL can be high-order, i.e., there're some constructs similar to functions in your DSL.
+
+We can slightly extend the terminal plot language, by adding a `@when` statement,
+
+```bnf
+action  : @forward <Julia Float64>
+        | @turn <Julia Float64>
+        | @when <Julia Function> => begin <actions> end
+
+actions : <action>
+        | <actions> <action>
+
+start   : actions <EOF>
+```
+
+The usage of `@when` can be like the following code,
+
+```julia
+predicate(pen) = pen.x == pen.y
+@when predicate => begin
+    @turn 0.3
+    @forward 0.5
+end
+```
+
+To implement this, we need to invoke the interpreter recursively, check [this code](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-high-order.jl#L68) out.
+
+## What GeneralizedGenerated.jl Counts
+
+### Say "No" to Performance Loss: Codegen for DSL
+
+In the last section, we introduced things about modeling tasks, where the majority approach called `tagful` style, have to use the interpretation way to execute the models/the DSL, which brings about a performance disaster.
+
+Interpreting `tag`s is slow, and naturally, a solution to the performance issues is, making a compiler from the interpreter.
+
+The `tag`s already contain the full information of computation logic, so we can use them to generate code. Note that the DSL can always be high order(equipped with (high-order) function abstractions), so we're to generate code containing closures.
+
+Still, using the example above, the terminal plot language, we implement the compiler and the code generator based on code for the interpreter. Besides, we can easily use runtime information to specialize the generated code, i.e., merging the consecutive `Turn` and `Forward`.
+
+By invoking this [benchmark script](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-bench.jl), we can make a table from the benchmark result:
+
+
+|   Item           |   Time    | Alloc     |
+|:-----------------|:----------|:----------|
+| Interpretation   | 11.801 μs | 1.75 KiB  |
+| Compilation      | 15.100 μs | 30.86 KiB |
+| Running compiled code| 9.799  μs | 512 bytes |
+
+We can see although compilation costs much time, running the compiled code is fast.
+
+The reason why there's not a big gap between `Interpretation` and `Running compiled code` can be caused by the simplicity of the DSL.
+
+By using runtime code generation and specialization, we can always greatly speed up our program. If the code will be invoked many times, it'll be beneficial to generate a specialized version to avoid unnecessary performance loss. A technique like this is called staging.
+
+However, in [above example](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-bench.jl#L87), we have to use `eval` to make a function from Julia ASTs.
+
+`eval`ing a function aside from top-level of a module results in the [world age problem](https://discourse.julialang.org/t/world-age-problem-explanation/9714),
+and to counter this problem, we have to use `Base.invokelatest`, which is very slow if it's the computation intensive case.
+
+Other than `eval`ing, we can use generated functions to achieve the same goal, but as we know, a generated function, whose code generator cannot return an AST containing functions.
+
+
+
+
+
+
+
+
+
+<!-- 
+
+
+
+There can be some issues with using `eval` in the non-toplevel part of module, we called it [World Age Problem](https://discourse.julialang.org/t/world-age-problem-explanation/9714). To address
+
+
+However, note that in [above example](https://github.com/thautwarm/static-resources/blob/master/GG/modeling-examples/terminal-plot-bench.jl#L87), we have to generate code manually. If it's responsible for us to choose the proper time and place to generate code, staging in Julia will not be that appealing and does bring about some mental burdens.
+
+
+### GeneralizedGenerated.jl
+ -->
