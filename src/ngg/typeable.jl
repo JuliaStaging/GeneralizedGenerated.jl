@@ -66,6 +66,15 @@ types_to_typelist(@nospecialize(many)) =
     to_type(@nospecialize(x)) = to_typelist(T[x...])
 end
 
+@implement Typeable{L} where {T, L <: Vector{T}} begin
+    to_type(@nospecialize(x)) =
+        let args = to_typelist(x),
+            apply(@nospecialize(args...)) = T[args...]
+            TApp{L, apply, args}
+        end
+end
+
+
 @implement Typeable{Expr} begin
     function to_type(x::Expr)
         @when Expr(args...) = x begin
