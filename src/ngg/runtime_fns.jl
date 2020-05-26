@@ -14,6 +14,8 @@ Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body, Name}) where {Args, Kwargs
         repr = "$Name = ($args;$kwargs) -> $body"
         print(io, repr)
 end
+# Don't verbosely print the type. Fix #44
+Base.show(io::IO, t::Type{<:RuntimeFn}) = Base.print(io, "ggfunc")
 
 struct Argument
     name    :: Symbol
