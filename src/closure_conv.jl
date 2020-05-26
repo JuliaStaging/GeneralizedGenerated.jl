@@ -78,8 +78,8 @@ function closure_conv(top::Any, ex::Any)
     conv(ex.args[2])
 end
 
-function _get_body(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
-    Body
+function _get_body(::RuntimeFn{Args, Kwargs, Body})::Any  where {Args, Kwargs, Body}
+    bytes_to_type(Body)
 end
 
 function _get_body(ex)

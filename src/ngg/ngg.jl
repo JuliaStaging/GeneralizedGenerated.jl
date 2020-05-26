@@ -1,6 +1,7 @@
 module NGG
 export to_type, from_type, show_repr, TypeLevel, TVal, TApp, TCons, TNil
 export RuntimeFn, Unset, Argument, mkngg, rmlines
+export bytes_to_type, type_to_bytes
 using MLStyle
 using CanonicalTraits
 using DataStructures
@@ -51,7 +52,7 @@ function mkngg(
 
     kwarglist = vectolist(kwargs)
     Kwargs = to_type(kwarglist)
-    Ex = to_type(ex)
+    Ex = type_to_bytes(to_type(ex))
     RuntimeFn{Args, Kwargs, Ex, name}()
 end
 
