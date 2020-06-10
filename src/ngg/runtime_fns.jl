@@ -1,20 +1,7 @@
 # A generalized generated function implementation, but not that generalized.
 
-import Serialization
-
 struct RuntimeFn{Args, Kwargs, Body, Name} end
 struct Unset end
-
-function type_to_bytes(@nospecialize(x))::(NTuple{N, UInt8} where N)
-    io = IOBuffer()
-    Serialization.serialize(io, x)
-    Tuple(take!(io))
-end
-
-function bytes_to_type(x::NTuple{N, UInt8})::Any where N
-    io = IOBuffer(UInt8[x...])
-    Serialization.deserialize(io)
-end
 
 @implement Typeable{RuntimeFn{Args, Kwargs, Body, Name}} where {Args, Kwargs, Body, Name}
 
@@ -23,7 +10,7 @@ Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body, Name}) where {Args, Kwargs
         kwargs = interpret(Kwargs)
         args = join(map(string, args), ", ")
         kwargs = join(map(string, kwargs), ", ")
-        body = interpret(bytes_to_type(Body)) |> rmlines
+        body = interpret(Body) |> rmlines
         repr = "$Name = ($args;$kwargs) -> $body"
         print(io, repr)
 end
@@ -78,7 +65,7 @@ end
     args   = interpret(Args)
     ninput = length(pargs)
     assign_block = Expr[]
-    body = interpret(bytes_to_type(Body))
+    body = interpret(Body)
     _ass_positional_args!(assign_block, args, ninput, :pargs)
     quote
         let $(assign_block...)
@@ -92,7 +79,7 @@ end
     kwargs = interpret(Kwargs)
     ninput = length(pargs)
     assign_block = Expr[]
-    body = interpret(bytes_to_type(Body))
+    body = interpret(Body)
     if isempty(kwargs)
         _ass_positional_args!(assign_block, args, ninput, :pargs)
     else
