@@ -1,7 +1,7 @@
 name = "GeneralizedGenerated"
 uuid = "6b9d7cbe-bcb9-11e9-073f-15a7a543e2eb"
 authors = ["thautwarm"]
-version = "0.2.4"
+version = "0.2.5"
 
 [deps]
 CanonicalTraits = "a603d957-0e48-4f86-8fbd-0b7bc66df689"
@@ -12,8 +12,8 @@ MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
 [compat]
 CanonicalTraits = "^0.1, ^0.2"
 DataStructures = "^0.17"
-JuliaVariables = "^0.2"
-MLStyle = "^0.3.1"
+JuliaVariables = "^0.2.1"
+MLStyle = "^0.3.1, ^0.4.1"
 julia = "1"
 
 [extras]
