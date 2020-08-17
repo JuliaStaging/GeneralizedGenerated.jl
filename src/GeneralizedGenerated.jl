@@ -19,7 +19,7 @@ end
 function mk_function(mod::Module, ex)
     ex = macroexpand(mod, ex)
     ex = simplify_ex(ex)
-    ex = solve(ex)
+    ex = solve!(ex)
     fn = closure_conv(mod, ex)
     if !(fn isa RuntimeFn)
         error("Expect an unnamed function expression. ")
