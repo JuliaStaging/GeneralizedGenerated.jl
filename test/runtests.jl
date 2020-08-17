@@ -12,7 +12,7 @@ rmlines = NGG.rmlines
 @gg function f1(a)
     quote
         x -> a + x
-    end
+    end |> rmlines
 end
 
 @test f1(1)(2) == 3
@@ -23,7 +23,7 @@ end
             a += 2
             x + a
         end
-    end
+    end |> rmlines
 end
 
 @test f2(1)(2) == 5
@@ -202,6 +202,18 @@ end
         end
     end
     @test bar(2)() == 2 + 20
+
+    @gg function foobar(x::T, y::A) where {T <: Number, A <: AbstractArray{T}}
+        quote
+            g = x + 20
+            x = 10
+            () -> begin
+                x = g
+                (A, x + y[1])
+            end
+        end
+    end
+    @test foobar(2, [3])() == (Vector{Int}, 2 + 20 + 3)
 end
 
 @testset "support default arguments" begin
@@ -254,59 +266,23 @@ end
     end
     @test test_free_of_let()() == 6
 end
-# # From Chris Rackauckas: https://github.com/JuliaLang/julia/pull/32737
-# @inline @generated function _invokefrozen(f, ::Type{rt}, args...) where rt
-#     tupargs = Expr(:tuple,(a==Nothing ? Int : a for a in args)...)
-#     quote
-#         _f = $(Expr(:cfunction, Base.CFunction, :f, rt, :((Core.svec)($((a==Nothing ? Int : a for a in args)...))), :(:ccall)))
-#         return ccall(_f.ptr,rt,$tupargs,$((:(getindex(args,$i) === nothing ? 0 : getindex(args,$i)) for i in 1:length(args))...))
-#     end
-# end
-# # @cscherrer's modification of `invokelatest` does better on kwargs
-# export invokefrozen
-# @inline function invokefrozen(f, rt, args...; kwargs...)
-#     g(kwargs, args...) = f(args...; kwargs...)
-#     kwargs = (;kwargs...)
-#     _invokefrozen(g, rt, (;kwargs...), args...)
-# end
-# @inline function invokefrozen(f, rt, args...)
-#     _invokefrozen(f, rt, args...)
-# end
 
-# @testset "GeneralizedGenerated.jl" begin
-#     # Write your own tests here.
+@testset "show something" begin
+    f1 = mk_function(:(x -> x + 1))
+    f2 = mk_function(:((x :: Int = 2, ) -> x + 1))
+    @test f1(1) == 2
+    @test f2() == 3
+    println(f1)
+    println(f2)
+end
 
-#     quote
-#         a = 1
-#         [a](b,) -> a + b
-#     end |>  closure_conv_static |> println
-#     @generated function f(x)
-#         quote
-#             [x](a) ->  x + a
-#         end |> gg
-#     end
-#     @test f(1)(2) == 3
+@testset "omit func argname: #34" begin
+   f1 = mk_function(:( (:: Int) -> 0 ))
+   @test f1(1) == 0
+   @test_throws MethodError f1("")
+end
 
-
-#     g_f = mk_function([:x, :y], [], :(x + y))
-#     @test g_f(10, 2) == 12
-
-#     eval(:(hpre(x,y) = x+y))
-
-#     static_f(x,y) = x+y
-
-#     g_f(1, 2)
-#     hpre(1, 2)
-#     static_f(1, 2)
-
-#     @info :GG_approach
-#     @btime $g_f(1, 2)
-
-#     @info :eval
-#     @btime $hpre(1, 2)
-
-#     @btime $static_f(1, 2)
-
-
-
-# end
+@testset "support for 1-d arrays' type encoding: #42" begin
+    from_type(to_type([1, 2, 3])) == [1, 2, 3]
+    from_type(to_type([1, 2, "3"])) == [1, 2, "3"]
+end
