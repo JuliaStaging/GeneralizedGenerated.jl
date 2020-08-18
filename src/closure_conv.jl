@@ -121,7 +121,7 @@ function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}
         let ast = Base.macroexpand($compmod, $body),
             fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast),
             fake_ast = $simplify_ex(fake_ast),
-            fake_ast = $solve(fake_ast),
+            fake_ast = $solve!(fake_ast),
             fake_fn = $closure_conv($(QuoteNode(runmod)), fake_ast)
             $from_type($_get_body(fake_fn))
         end
