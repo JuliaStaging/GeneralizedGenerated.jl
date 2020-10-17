@@ -121,6 +121,7 @@ const named_tuple_maker(p...) = (;p...)
 end
 
 @implement Typeable{Symbol}
+@implement Typeable{Val{T}} where T
 @implement Typeable{T} where T <: Number
 @implement Typeable{T} where T <: Type
 @implement Typeable{T} where T <: Function
