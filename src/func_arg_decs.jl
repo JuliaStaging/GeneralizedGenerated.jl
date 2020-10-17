@@ -24,7 +24,14 @@ function func_arg(@nospecialize(ex))::FuncArg
         :($var :: $ty) => @with func_arg(var).type = ty
         Expr(:kw, var, default) => @with func_arg(var).default = default
         Expr(:(=), var, default) => @with func_arg(var).default = default
-        var => FuncArg(var, unset, unset)
+        var::Symbol => FuncArg(var, unset, unset)
+        Expr(:..., _) => error(
+                "GG does not support variadic argument($ex) so far.\n"
+                * "Try\n"
+                * "  f(x...) = _f(x)\n"
+                * "  @gg _f(x) = ...\n"
+                * "See more at: https://github.com/JuliaStaging/GeneralizedGenerated.jl/issues/38")
+        _ => error("GG does not understand the argument $ex.")
     end
 end
 
