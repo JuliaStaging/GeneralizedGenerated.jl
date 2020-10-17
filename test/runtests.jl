@@ -286,3 +286,9 @@ end
     from_type(to_type([1, 2, 3])) == [1, 2, 3]
     from_type(to_type([1, 2, "3"])) == [1, 2, "3"]
 end
+
+@testset "#54: fastmath/typeable Val" begin
+    f = mk_function([:x],[],Base.FastMath.make_fastmath(:(0.5+1.0*x^2)))
+    @test f(1) == 1.5
+    @test f(10) == 100.5
+end
