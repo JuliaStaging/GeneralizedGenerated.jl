@@ -1,13 +1,12 @@
 # GeneralizedGenerated
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://thautwarm.github.io/GeneralizedGenerated.jl/dev)
-[![Build Status](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl.svg?branch=master)](https://travis-ci.com/thautwarm/GeneralizedGenerated.jl)
-[![Codecov](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/thautwarm/GeneralizedGenerated.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaStaging.github.io/GeneralizedGenerated.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaStaging.github.io/GeneralizedGenerated.jl/dev)
+[![Build Status](https://travis-ci.com/JuliaStaging/GeneralizedGenerated.jl.svg?branch=master)](https://travis-ci.com/JuliaStaging/GeneralizedGenerated.jl)
+[![Codecov](https://codecov.io/gh/JuliaStaging/GeneralizedGenerated.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaStaging/GeneralizedGenerated.jl)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3596233.svg)](https://doi.org/10.5281/zenodo.3596233)
 
-GeneralizedGenerated enables the generalised generated functions. More concretely,
-**supports defining closures in generated functions**.
+GeneralizedGenerated enables the generalized generated functions. Specifically, **it supports closure constructions in generated functions**.
 
 Besides, some utility stuffs relevant to GeneralizedGenerated's implementation are exported,
 which **allows you to keep `eval` and `invokelastest`** away from Julia
@@ -16,7 +15,7 @@ metaprogramming.
 
 ## Background: World Age Problem
 
-See an explanation [here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4?u=thautwarm).
+See an explanation [here](https://discourse.julialang.org/t/world-age-problem-explanation/9714/4).
 
 ```julia
 julia> module WorldAgeProblemRaisedHere!
