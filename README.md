@@ -12,6 +12,15 @@ Besides, some utility stuffs relevant to GeneralizedGenerated's implementation a
 which **allows you to keep `eval` and `invokelastest`** away from Julia
 metaprogramming.
 
+## Notes about Usage:
+
+`GeneralizedGenerated.jl` has issues about latency and extensive memory consumptions, and is sometimes likely to trigger segfault bugs when generated functions get enormous([#45](https://github.com/JuliaStaging/GeneralizedGenerated.jl/issues/45), [#59](https://github.com/JuliaStaging/GeneralizedGenerated.jl/issues/59)). This suggests that you should avoid your expressions from being too large.
+
+In terms of **use cases where no closure is needed**, you'd better use [RuntimeGeneratedFunctions.jl](https://github.com/SciML/RuntimeGeneratedFunctions.jl), which has better scalability than `GeneralizedGenerated.jl`.
+
+P.S:
+- You should also re-check if closures are really necessary in your code.
+- If you use `mk_function` or similar stuffs in a non-global loop, but only call those generated functions once, you might re-think if your design can be refined to avoid this. 
 
 ## Background: World Age Problem
 
