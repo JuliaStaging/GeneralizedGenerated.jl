@@ -55,10 +55,28 @@ function _assign_id(pool::AbstractVector, flag::UInt)
     end
 end
 
+@static if VERSION < v"1.1"
+    function _get!(default::Function, d::Base.IdDict{K,V}, @nospecialize(key)) where {K,V}
+        val = get(d, key, Base.secret_table_token)
+        if val === Base.secret_table_token
+            val = default()
+            if !isa(val, V)
+                val = convert(V, val)::V
+            end
+            setindex!(d, val, key)
+            return val
+        else
+            return val::V
+        end
+    end
+end
+
+_get!(f, d, key) = get!(f, d, key)
+
 function _get_id!(pool, index, val, flag)
     lock(_lock)
     try
-        get!(index, val) do
+        _get!(index, val) do
             id = _assign_id(pool, flag)
             push!(pool, val)
             index[val] = id
