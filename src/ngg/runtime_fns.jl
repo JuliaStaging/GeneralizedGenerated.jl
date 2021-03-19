@@ -1,26 +1,33 @@
-# A generalized generated function implementation, but not that generalized.
-
-struct RuntimeFn{Args, Kwargs, Body, Name} end
+struct RuntimeFn{Args,Kwargs,Body,Name} end
 struct Unset end
 
-@implement Typeable{RuntimeFn{Args, Kwargs, Body, Name}} where {Args, Kwargs, Body, Name}
-
-Base.show(io::IO, rtfn::RuntimeFn{Args, Kwargs, Body, Name}) where {Args, Kwargs, Body, Name} = begin
-        args = interpret(Args)
-        kwargs = interpret(Kwargs)
+Base.show(io::IO, rtfn::RuntimeFn{Args,Kwargs,Body,Name}) where {Args,Kwargs,Body,Name} =
+    begin
+        args = from_type(Args)
+        kwargs = from_type(Kwargs)
         args = join(map(string, args), ", ")
         kwargs = join(map(string, kwargs), ", ")
-        body = interpret(Body) |> rmlines
+        body = from_type(Body) |> rmlines
         repr = "$Name = ($args;$kwargs) -> $body"
         print(io, repr)
-end
-# Don't verbosely print the type. Fix #44
-Base.show(io::IO, t::Type{<:RuntimeFn}) = Base.print(io, "ggfunc")
+    end
+
+Base.show(io::IO, ::Type{RuntimeFn{Args,Kwargs,Body,Name}}) where {Args,Kwargs,Body,Name} =
+    print(io, "ggfunc-$Name")
 
 struct Argument
-    name    :: Symbol
-    type    :: Union{Nothing, Any}
-    default :: Union{Unset,  Any}
+    name::Symbol
+    type::Union{Nothing,Any}
+    default::Union{Unset,Any}
+end
+
+function compress_impl!(arg::Argument)
+    meta, default = compress_impl!(arg.default)
+    encoded = Call(
+        Constructor{Argument}(),
+        tuple(compress(arg.name), compress(arg.type), default),
+    )
+    may_cache_call(meta, encoded)
 end
 
 Base.show(io::IO, arg::Argument) = begin
@@ -33,22 +40,17 @@ Base.show(io::IO, arg::Argument) = begin
     end
 end
 
-@implement Typeable{Unset}
-
-@implement Typeable{Argument} begin
-    to_type(@nospecialize(arg)) =
-        let f = Argument
-            args = [arg.name, arg.type, arg.default] |> to_typelist
-            TApp{Argument, f, args}
-        end
-end
-
-function _ass_positional_args!(assign_block::Vector{Expr}, args :: List{Argument}, ninput::Int, pargs :: Symbol)
+function _ass_positional_args!(
+    assign_block::Vector{Expr},
+    args::List{Argument},
+    ninput::Int,
+    pargs::Symbol,
+)
     i = 1
     for arg in args
         ass = arg.name
         if arg.type !== nothing
-            ass = :($ass :: $(arg.type))
+            ass = :($ass::$(arg.type))
         end
         if i > ninput
             arg.default === Unset() && error("Input arguments too few.")
@@ -61,11 +63,12 @@ function _ass_positional_args!(assign_block::Vector{Expr}, args :: List{Argument
     end
 end
 
-@generated function (::RuntimeFn{Args, TNil{Argument}, Body})(pargs...) where {Args, Body}
-    args   = interpret(Args)
+const _zero_arg = compress(list(Argument))
+@generated function (::RuntimeFn{Args,_zero_arg,Body})(pargs...) where {Args,Body}
+    args = from_type(Args)
     ninput = length(pargs)
     assign_block = Expr[]
-    body = interpret(Body)
+    body = from_type(Body)
     _ass_positional_args!(assign_block, args, ninput, :pargs)
     quote
         let $(assign_block...)
@@ -74,26 +77,29 @@ end
     end
 end
 
-@generated function (::RuntimeFn{Args, Kwargs, Body})(pargs...; pkwargs...) where {Args, Kwargs, Body}
-    args   = interpret(Args)
-    kwargs = interpret(Kwargs)
+_get_kwds(::Type{Base.Iterators.Pairs{A,B,C,NamedTuple{Kwds,D}}}) where {Kwds,A,B,C,D} =
+    Kwds
+
+@generated function (::RuntimeFn{Args,Kwargs,Body})(
+    pargs...;
+    pkwargs...,
+) where {Args,Kwargs,Body}
+    args = from_type(Args)
+    kwargs = from_type(Kwargs)
     ninput = length(pargs)
     assign_block = Expr[]
-    body = interpret(Body)
+    body = from_type(Body)
     if isempty(kwargs)
         _ass_positional_args!(assign_block, args, ninput, :pargs)
     else
-        function get_kwds(::Type{Base.Iterators.Pairs{A, B, C, NamedTuple{Kwds,D}}}) where {Kwds, A, B, C, D}
-            Kwds
-        end
         kwds = gensym("kwds")
-        feed_in_kwds = get_kwds(pkwargs)
+        feed_in_kwds = _get_kwds(pkwargs)
         push!(assign_block, :($kwds = pkwargs))
         _ass_positional_args!(assign_block, args, ninput, :pargs)
         for kwarg in kwargs
             ass = k = kwarg.name
             if kwarg.type !== nothing
-                ass = :($ass :: $(kwarg.type))
+                ass = :($ass::$(kwarg.type))
             end
             if k in feed_in_kwds
                 ass = :($ass = $kwds[$(QuoteNode(k))])

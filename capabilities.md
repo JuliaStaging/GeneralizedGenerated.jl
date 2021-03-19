@@ -236,7 +236,7 @@ generated_sum_circle(data)
 ```
 
 The direct reason for the crash of above code is, the generated code
-contains a `π/4 2500 * 2500`-depth addition expressions.
+contains a `π/4 2500 * 2500`-complexity addition expressions.
 
 A simple fix is to manually reduce the size of generated code, by changing the generator `sum_circle_generator`:
 

@@ -1,10 +1,12 @@
+"""
+Providing *naive generalized generated* functions.
+"""
 module NGG
-export to_type, from_type, show_repr, TypeLevel, TVal, TApp, TCons, TNil
+export to_type, from_type, TypeLevel
+export compress, decompress
 export RuntimeFn, Unset, Argument, mkngg, rmlines
-using MLStyle
-using CanonicalTraits
 using DataStructures
-List = LinkedList
+const List = LinkedList
 
 rmlines(ex::Expr) = begin
     hd = ex.head
@@ -16,13 +18,6 @@ islinenumbernode(@nospecialize(x)) = x isa LineNumberNode
 
 include("typeable.jl")
 include("runtime_fns.jl")
-
-
-function vectolist(x::Vector{T}) where T
-    foldr(x, init=nil(T)) do e, last
-        Cons{T}(e, last)
-    end
-end
 
 """
 julia> using .NGG
@@ -46,14 +41,26 @@ function mkngg(
     kwargs::Vector{Argument},
     @nospecialize(ex)
 )
-    arglist = vectolist(args)
-    Args = to_type(arglist)
-
-    kwarglist = vectolist(kwargs)
-    Kwargs = to_type(kwarglist)
+    Args = to_type(_typed_list(Argument, args...))
+    Kwargs = to_type(_typed_list(Argument, kwargs...))
     Ex = to_type(ex)
-    RuntimeFn{Args, Kwargs, Ex, name}()
+    RuntimeFn{Args,Kwargs,Ex,name}()
 end
 
+# const f = mkngg(
+#     :f, #fname
+#     [
+#         Argument(:a, nothing, Unset()),
+#         Argument(:b, nothing, Unset())
+#     ],  # args
+#     Argument[], # kwargs
+#     :(a + b) #expression
+# )
+
+# println(f)
+# println(typeof(f))
+# using BenchmarkTools
+
+# @btime f(1, 2)
 
 end

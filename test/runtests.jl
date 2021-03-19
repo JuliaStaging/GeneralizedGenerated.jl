@@ -84,7 +84,7 @@ end
 
 @testset "type encoding more datatypes" begin
 
-@gg function f5(a)
+@gg function f6(a)
     tp = (1, 2, 3)
     quote
         function z(x, k=$tp)
@@ -93,10 +93,10 @@ end
     end
 end
 
-@test f5(10)(2) == (x=2, k=(1, 2, 3), q=10)
+@test f6(10)(2) == (x=2, k=(1, 2, 3), q=10)
 
 
-@gg function f5(a)
+@gg function f7(a)
     tp = (a1=1, a2=2, a3=3)
     quote
         function z(x, k=$tp)
@@ -105,10 +105,10 @@ end
     end
 end
 
-@test f5(10)(2) == (x=2, k=(a1=1, a2=2, a3=3), q=10)
+@test f7(10)(2) == (x=2, k=(a1=1, a2=2, a3=3), q=10)
 
 
-@gg function f5(a)
+@gg function f8(a)
     tp = "233"
     quote
         function z(x, k=$tp)
@@ -117,10 +117,10 @@ end
     end
 end
 
-@test f5(10)(2) == (x=2, k="233", q=10)
+@test f8(10)(2) == (x=2, k="233", q=10)
 
 
-@gg function f5(a)
+@gg function f9(a)
     tp = list(1, 2, 3)
     quote
         function z(x; k=$tp)
@@ -129,8 +129,8 @@ end
     end
 end
 
-@test f5(10)(2) == (x=2, k=list(1, 2, 3), q=10)
-@test f5(10)(2; k=10) == (x=2, k=10, q=10)
+@test f9(10)(2) == (x=2, k=list(1, 2, 3), q=10)
+@test f9(10)(2; k=10) == (x=2, k=10, q=10)
 
 end
 
@@ -237,13 +237,15 @@ struct K
     f2::Function
 end
 @testset "specifying evaluation modules" begin
-    @gg m function g(m::Module, y) :(run(y)) end
+    @gg function g(m::Module, y)
+        @under_global :m :(run(y))
+    end
     @test g(S, 1) == 2
 
-    @gg m function h(m, y)
-        quote
-        c = m.f1(y)
-        () -> begin c = m.f2(c) end
+    @gg function h(m, y)
+        @under_global :m quote
+            c = m.f1(y)
+            () -> begin c = m.f2(c) end
         end
     end
     k = K(x -> x + 1, x -> x * 9)
@@ -291,4 +293,49 @@ end
     f = mk_function([:x],[],Base.FastMath.make_fastmath(:(0.5+1.0*x^2)))
     @test f(1) == 1.5
     @test f(10) == 100.5
+end
+
+struct PseudoModule{X, F}
+    x :: X
+    (+) :: F
+end
+
+@testset "struct as module" begin
+    @gg f(y) = @under_global PseudoModule(10, *) :(x + y)
+    @test f(2) == 20
+end
+
+
+@testset "#57, #59: big expression" begin
+
+using GeneralizedGenerated: mk_function
+
+function rand_ex()
+    u = rand()
+    c = randn()
+    if u < 0.5
+        return :(m1 + m2 + r² + $c)
+    else
+        return :(m1 * m2 / r² * $c)
+    end
+end
+
+function gen_f_mkfunc(ex)
+    return mk_function(@__MODULE__, rmlines(:((m1, m2, r²) -> $ex)))
+end
+
+function main(N::Int)
+    for i in 1:N
+        m1, m2, r² = rand(3)
+        ex = rand_ex()
+        f_mkfunc = gen_f_mkfunc(ex)
+        f_mkfunc(m1, m2, r²)
+    end
+end
+
+main(500)   # successful
+main(5_000) # failed
+
+@test true
+
 end
