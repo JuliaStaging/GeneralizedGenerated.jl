@@ -1,7 +1,6 @@
 module GeneralizedGenerated
 using MLStyle
 using JuliaVariables
-using CanonicalTraits
 using DataStructures
 List = LinkedList
 
