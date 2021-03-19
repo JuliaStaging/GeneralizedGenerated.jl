@@ -333,8 +333,7 @@ function main(N::Int)
     end
 end
 
-main(500)   # successful
-main(5_000) # failed
+main(5_000)
 
 @test true
 
