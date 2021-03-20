@@ -232,7 +232,7 @@ end
 
 function compress_impl!(a::GlobalRef)
     _, mod_encoded = compress_impl!(a.mod)
-    _, name_encoded = compress_impl!(a.mod)
+    _, name_encoded = compress_impl!(a.name)
     meta = SimpleMeta(1)
     encoded = Call(Constructor{GlobalRef}(), tuple(mod_encoded, name_encoded))
     return meta, encoded
