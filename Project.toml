@@ -1,19 +1,18 @@
 name = "GeneralizedGenerated"
 uuid = "6b9d7cbe-bcb9-11e9-073f-15a7a543e2eb"
 authors = ["thautwarm"]
-version = "0.2.8"
+version = "0.3.1"
 
 [deps]
-CanonicalTraits = "a603d957-0e48-4f86-8fbd-0b7bc66df689"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 JuliaVariables = "b14d175d-62b4-44ba-8fb7-3064adc8c3ec"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [compat]
-CanonicalTraits = "~0.1, ~0.2"
 DataStructures = "0.17, 0.18"
-JuliaVariables = "~0.2.1"
-MLStyle = "~0.3.1, ~0.4.1"
+JuliaVariables = "~0.2.4"
+MLStyle = "~0.4.2"
 julia = "1"
 
 [extras]

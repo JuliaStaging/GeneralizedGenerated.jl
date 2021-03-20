@@ -76,7 +76,7 @@ h(1, 2)(1) # => 14
 
 Note there're some restrictions to the generalized generated functions yet:
 
-- Multiple dispatch is not allowed, and `f(x) = ...` is equivalent to `f = x -> ...`. This will never gets supported for it needs a thorough implementation of multuple dispatch in GG.
+- Multiple dispatch is not allowed, and `f(x) = ...` is equivalent to `f = x -> ...`. This will never gets supported for it needs a thorough implementation of multiple dispatch in GG.
 - Comprehensions for generated functions are not implemented yet. It won't cost a long time for being supported.
 
 The evaluation module can be specified in this way:
@@ -87,9 +87,10 @@ julia> module S
        end
 Main.S
 
-julia> @gg m function g(m::Module, y) :(run(y)) end
-# the global variable `run` is from the module `m`
-g (generic function with 1 method)
+julia> @gg g(m::Module, y) = @under_global :m :(run(y));
+# the global variable `run` is from the local variable `m`
+# <=>
+# @gg g(m::Module, y) = :($(:m).run(y));
 
 julia> g(S, 1)
 2
@@ -103,11 +104,30 @@ julia> struct S
        end
 Main.S
 
-julia> @gg m function g(m::S, y) :(run(y)) end
-# the global variable `run` is from the datum `m`
-g (generic function with 1 method)
+julia> @gg function g(m::S, y)
+            @under_global :m quote
+                run(y)
+            end
+       end;
+# <=>
+# @gg function g(m::S, y)
+#    :($(:m).run(y))
+# end;
 
 julia> g(S(x -> x + 1), 1)
+2
+
+julia> const pseudo_module = S(x -> x + 1);
+julia> @gg function g(y)
+            @under_global pseudo_module quote
+                run(y)
+            end
+       end
+# <=>
+# @gg function g(y)
+#    :($(pseudo_module).run(y))
+# end 
+julia> g(1)
 2
 ```
 

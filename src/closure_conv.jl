@@ -1,7 +1,7 @@
 using JuliaVariables
 using MLStyle
 include("ngg/ngg.jl")
-include("lens.jl")
+include("utils.jl")
 include("closure.jl")
 using .NGG
 include("func_arg_decs.jl")
@@ -24,11 +24,13 @@ function closure_conv(top::Any, ex::Any)
             end
             push!(block, conv(inner))
             Expr(:block, block...)
-        @when Expr(:function, head, inner&&Expr(:scoped, scope, _)) = ex
+            @when Expr(:function, head, inner && Expr(:scoped, scope, _)) = ex
 
             freenames = Symbol[f.name for f in scope.freevars]
             # If the evaluation module is a symbol and not in arguments
-            if top isa Symbol && all(scope.bounds) do e; e.name !== top end
+            if top isa Symbol && all(scope.bounds) do e
+                e.name !== top
+            end
                 push!(freenames, top)
             end
 
@@ -51,7 +53,7 @@ function closure_conv(top::Any, ex::Any)
                 closure_vars = Expr(:tuple, freenames...)
                 fn = quote
                     let freevars = $closure_vars
-                        $Closure{$fn, Base.typeof(freevars)}(freevars)
+                        $Closure{$fn,Base.typeof(freevars)}(freevars)
                     end
                 end
             end
@@ -60,7 +62,7 @@ function closure_conv(top::Any, ex::Any)
                 fn = Expr(:block, :($(fh.name) = $fn))
             end
             fn
-        @when Expr(hd, args...) = ex
+            @when Expr(hd, args...) = ex
             Expr(hd, map(conv, args)...)
         end
     end
@@ -78,7 +80,7 @@ function closure_conv(top::Any, ex::Any)
     conv(ex.args[2])
 end
 
-function _get_body(::RuntimeFn{Args, Kwargs, Body})  where {Args, Kwargs, Body}
+function _get_body(::RuntimeFn{Args,Kwargs,Body}) where {Args,Kwargs,Body}
     Body
 end
 
@@ -86,7 +88,16 @@ function _get_body(ex)
     error(ex)
 end
 
-function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}, ex)
+struct UnderGlobal
+    mod::Any
+    ex::Any
+end
+
+macro under_global(m, ex)
+    esc(:($UnderGlobal($m, $ex)))
+end
+
+function gg(compmod::Module, runmod::Any, source::Union{Nothing,LineNumberNode}, ex)
     (head, body) = @match ex begin
         Expr(:(=), head, body) => (head, body)
         Expr(:function, head, body) => (head, body)
@@ -118,22 +129,27 @@ function gg(compmod::Module, runmod::Any, source::Union{Nothing, LineNumberNode}
     pseudo_head = Expr(:tuple, locals...)
 
     genbody = quote
-        let ast = Base.macroexpand($compmod, $body),
-            fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast),
-            fake_ast = $simplify_ex(fake_ast),
-            fake_ast = $solve!(fake_ast),
-            fake_fn = $closure_conv($(QuoteNode(runmod)), fake_ast)
-            $from_type($_get_body(fake_fn))
+        let body = $body
+            if body isa $UnderGlobal
+                ast = Base.macroexpand($compmod, body.ex)
+                fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast)
+                fake_ast = $simplify_ex(fake_ast)
+                fake_ast = $solve!(fake_ast)
+                fake_fn = $closure_conv(body.mod, fake_ast)
+                $from_type($_get_body(fake_fn))
+            else
+                ast = Base.macroexpand($compmod, body)
+                fake_ast = Base.Expr(:function, $(QuoteNode(pseudo_head)), ast)
+                fake_ast = $simplify_ex(fake_ast)
+                fake_ast = $solve!(fake_ast)
+                fake_fn = $closure_conv($(QuoteNode(runmod)), fake_ast)
+                $from_type($_get_body(fake_fn))
+            end
         end
     end
 
     generator = Expr(:function, head, genbody)
     Expr(:macrocall, Symbol("@generated"), source, generator)
-end
-
-macro gg(modname, ex)
-    ex = gg(__module__, modname, __source__, ex)
-    esc(ex)
 end
 
 macro gg(ex)
