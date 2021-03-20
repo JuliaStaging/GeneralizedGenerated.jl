@@ -128,7 +128,7 @@ function gg(compmod::Module, runmod::Any, source::Union{Nothing,LineNumberNode},
 
     pseudo_head = Expr(:tuple, locals...)
 
-    genbody = @q begin
+    genbody = quote
         let body = $body
             if body isa $UnderGlobal
                 ast = Base.macroexpand($compmod, body.ex)

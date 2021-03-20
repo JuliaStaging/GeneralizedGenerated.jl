@@ -33,28 +33,3 @@ end
 macro with(ex)
     esc(with(ex))
 end
-
-function q(ex, module′)
-    @switch ex begin
-        @case Expr(:macrocall, a, b, args...) && let new_args = Any[a, b]
-        end || Expr(head, args...) && let new_args = []
-        end
-        for i in eachindex(args)
-            @switch args[i] begin
-                @case ::LineNumberNode
-                @case _
-                push!(new_args, q(args[i], module′))
-            end
-        end
-        if length(ex.args) !== length(new_args)
-            ex.args = new_args
-        end
-        nothing
-        @case _
-    end
-    return ex
-end
-
-macro q(ex)
-    return esc(Expr(:quote, q(ex, __module__)))
-end
