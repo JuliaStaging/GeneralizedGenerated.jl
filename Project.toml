@@ -1,7 +1,7 @@
 name = "GeneralizedGenerated"
 uuid = "6b9d7cbe-bcb9-11e9-073f-15a7a543e2eb"
 authors = ["thautwarm"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
