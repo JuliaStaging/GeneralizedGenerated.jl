@@ -6,9 +6,8 @@ List = LinkedList
 
 export NGG
 export gg, @gg, UnderGlobal, @under_global
-export closure_conv, interpret
-export RuntimeFn, mk_function, mkngg
-export to_type, to_typelist, types_to_typelist, from_type, runtime_eval
+export RuntimeFn, closure_conv, mk_function, mkngg
+export to_type, from_type, runtime_eval
 include("closure_conv.jl")
 
 
