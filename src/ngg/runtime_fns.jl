@@ -1,4 +1,4 @@
-struct RuntimeFn{Args,Kwargs,Body,Name} end
+struct RuntimeFn{Args,Kwargs,Body,Name} <: Function end
 struct Unset end
 
 Base.show(io::IO, rtfn::RuntimeFn{Args,Kwargs,Body,Name}) where {Args,Kwargs,Body,Name} =

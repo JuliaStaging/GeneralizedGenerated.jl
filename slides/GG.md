@@ -162,7 +162,7 @@ free variables, if we presume
 we can introduce a structure(`Closure`) to represent a closure:
 
 ```julia
-struct Closure{F, Free}
+struct Closure{F, Free} <: Function
     frees :: Free
 end
 
@@ -221,7 +221,7 @@ procedures:
   we generate a closure structure with `frees`:
 
 ```julia
-struct Closure{F, Free}
+struct Closure{F, Free} <: Function
     frees :: Free
 end
 
@@ -354,7 +354,7 @@ However, we propose a type to achieve generating non-closure functions
 in runtime:
 
 ```julia
-struct RuntimeFn{Args, Kwargs, Body} end
+struct RuntimeFn{Args, Kwargs, Body} <: Function end
 ```
 
 where both `Args` and `Kwargs` are typeable representations of

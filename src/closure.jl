@@ -1,4 +1,4 @@
-struct Closure{F,Free}
+struct Closure{F,Free} <: Function
     frees::Free
 end
 
