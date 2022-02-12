@@ -131,6 +131,11 @@ julia> g(1)
 2
 ```
 
+julia> @generated function g()
+    Module = Main
+    mk_expr(Module,  :( (x -> x)(1)))
+end
+
 ## No `eval`/`invokelatest`!
 
 ```julia

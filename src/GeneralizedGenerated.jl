@@ -6,7 +6,7 @@ List = LinkedList
 
 export NGG
 export gg, @gg, UnderGlobal, @under_global
-export RuntimeFn, closure_conv, mk_function, mkngg
+export RuntimeFn, closure_conv, mk_function, mkngg, mk_expr
 export to_type, from_type, runtime_eval
 include("closure_conv.jl")
 
@@ -25,6 +25,17 @@ function mk_function(mod::Module, ex)
     end
     fn
 end
+
+"""
+process an expression and perform closure conversions for all nested expressions.
+"""
+function mk_expr(mod::Module, ex)
+    ex = macroexpand(mod, ex)
+    ex = simplify_ex(ex)
+    ex = solve!(ex)
+    closure_conv(mod, ex)
+end
+
 
 function mk_function(mod::Module, args, kwargs, body)
     mk_function(mod, Expr(:function, :($(args...), ; $(kwargs...)), body))
