@@ -20,7 +20,7 @@ In terms of **use cases where no closure is needed**, you'd better use [RuntimeG
 
 P.S:
 - You should also re-check if closures are really necessary in your code.
-- If you use `mk_function` or similar stuffs in a non-global loop, but only call those generated functions once, you might re-think if your design can be refined to avoid this. 
+- If you use `mk_function` or similar stuffs in a non-global loop, but only call those generated functions once, you might re-think if your design can be refined to avoid this.
 
 ## Background: World Age Problem
 
@@ -126,7 +126,7 @@ julia> @gg function g(y)
 # <=>
 # @gg function g(y)
 #    :($(pseudo_module).run(y))
-# end 
+# end
 julia> g(1)
 2
 ```
@@ -204,3 +204,27 @@ module GoodGameOnceAgain
 end
 runtime_eval(GoodGameOnceAgain, :(a + 3)) == 5
 ```
+
+# Known Bugs
+
+1. Type annotations.
+
+    Type annotations for cell variables (variables shared to any inner functions of the  current scope) do not work. You might consider changing your generated code from
+
+    ```julia
+    a :: t = b
+    # when 'a' is  cell,
+    # the closure-converted code 'a.contents :: t = b' fails due to the Julia syntax
+    ```
+
+    to
+
+    ```julia
+    a = b :: t
+    ```
+
+2. Precompilation
+
+    GG is designed for purely runtime generated functions, and currently has difficulties in precompiling a GG function.
+
+    When developing a package, please do not define a GG function in the top level!
