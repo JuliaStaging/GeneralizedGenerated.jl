@@ -16,11 +16,11 @@ function closure_conv(top::Any, ex::Any)
             for var in scope.bounds
                 if var.is_mutable && var.is_shared
                     name = var.name
-                    if var.name in scope.bound_inits
-                        push!(block, :($name = Core.Box($name)))
-                    else
-                        push!(block, :($name = Core.Box()))
-                    end
+                    # if var.name in scope.bound_inits
+                    #     push!(block, :($name = Core.Box($name)))
+                    # else
+                    #     push!(block, :($name = Core.Box()))
+                    # end
                 end
             end
             push!(block, conv(inner))
@@ -75,9 +75,9 @@ function closure_conv(top::Any, ex::Any)
     function conv(s::Var)
         name = s.name
         s.is_global && return :($top.$name)
-        s.is_mutable && s.is_shared && return begin
-            :($name.contents)
-        end
+        # s.is_mutable && s.is_shared && return begin
+        #     :($name.contents)
+        # end
         name
     end
     conv(s) = s
